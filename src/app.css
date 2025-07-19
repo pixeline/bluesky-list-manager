@@ -1,0 +1,239 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+/* Global styles */
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	line-height: 1.6;
+	color: #333;
+	background: #f8fafc;
+}
+
+.container {
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 0 1rem;
+}
+
+/* Header */
+.header {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	padding: 1rem 0;
+	box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.header h1 {
+	font-size: 2rem;
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+}
+
+.header p {
+	opacity: 0.9;
+	font-size: 1.1rem;
+}
+
+/* Buttons */
+.btn {
+	display: inline-block;
+	padding: 0.75rem 1.5rem;
+	border: none;
+	border-radius: 8px;
+	font-size: 1rem;
+	font-weight: 500;
+	text-decoration: none;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.btn-primary {
+	background: #3b82f6;
+	color: white;
+}
+
+.btn-primary:hover {
+	background: #2563eb;
+	transform: translateY(-1px);
+}
+
+.btn-secondary {
+	background: #f1f5f9;
+	color: #475569;
+	border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+	background: #e2e8f0;
+}
+
+/* Forms */
+.form-group {
+	margin-bottom: 1.5rem;
+}
+
+.form-group label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+	color: #374151;
+}
+
+.form-control {
+	width: 100%;
+	padding: 0.75rem;
+	border: 1px solid #d1d5db;
+	border-radius: 6px;
+	font-size: 1rem;
+	transition: border-color 0.2s ease;
+}
+
+.form-control:focus {
+	outline: none;
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Cards */
+.card {
+	background: white;
+	border-radius: 12px;
+	padding: 1.5rem;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	margin-bottom: 1rem;
+}
+
+.profile-card {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 1rem;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	margin-bottom: 1rem;
+	transition: all 0.2s ease;
+}
+
+.profile-card:hover {
+	border-color: #3b82f6;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-card.selected {
+	border-color: #3b82f6;
+	background: #f0f9ff;
+}
+
+.profile-card.already-added {
+	opacity: 0.7;
+	background: #f9fafb;
+}
+
+.avatar {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+/* Layout */
+.main {
+	padding: 2rem 0;
+}
+
+.grid {
+	display: grid;
+	gap: 2rem;
+}
+
+.grid-2 {
+	grid-template-columns: 1fr 2fr;
+}
+
+@media (max-width: 768px) {
+	.grid-2 {
+		grid-template-columns: 1fr;
+	}
+
+	.container {
+		padding: 0 0.5rem;
+	}
+
+	.header h1 {
+		font-size: 1.5rem;
+	}
+}
+
+/* Pagination */
+.pagination {
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+	margin: 2rem 0;
+}
+
+.pagination a,
+.pagination span {
+	padding: 0.5rem 1rem;
+	border: 1px solid #e5e7eb;
+	border-radius: 6px;
+	text-decoration: none;
+	color: #374151;
+	transition: all 0.2s ease;
+}
+
+.pagination a:hover {
+	background: #f3f4f6;
+}
+
+.pagination .current {
+	background: #3b82f6;
+	color: white;
+	border-color: #3b82f6;
+}
+
+/* Loading states */
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem;
+}
+
+.spinner {
+	width: 24px;
+	height: 24px;
+	border: 2px solid #e5e7eb;
+	border-top: 2px solid #3b82f6;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+
+/* Alerts */
+.alert {
+	padding: 1rem;
+	border-radius: 8px;
+	margin-bottom: 1rem;
+}
+
+.alert-success {
+	background: #dcfce7;
+	color: #166534;
+	border: 1px solid #bbf7d0;
+}
+
+.alert-error {
+	background: #fef2f2;
+	color: #dc2626;
+	border: 1px solid #fecaca;
+}

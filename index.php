@@ -32,16 +32,22 @@ function loadEnv($path = '.env')
 loadEnv();
 
 // CONFIGURATION from environment variables
-$BLUESKY_HANDLE = getenv('BLUESKY_HANDLE') ?: 'pixeline.be';
+$BLUESKY_HANDLE = getenv('BLUESKY_HANDLE') ?: '';
 $BLUESKY_APP_PASSWORD = getenv('BLUESKY_APP_PASSWORD') ?: '';
-$QUERY = getenv('QUERY') ?: 'belge';
+$QUERY = getenv('QUERY') ?: 'artist';
 $PAGE_SIZE = (int)(getenv('PAGE_SIZE') ?: 25);
 $CURRENT_PAGE = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$LIST_RKEY = getenv('LIST_RKEY') ?: '3kmkqahpucb2z';
+$LIST_RKEY = getenv('LIST_RKEY') ?: '';
 
 // Validate required environment variables
+if (empty($BLUESKY_HANDLE)) {
+    die("❌ BLUESKY_HANDLE not set. Please configure your .env file.");
+}
 if (empty($BLUESKY_APP_PASSWORD)) {
     die("❌ BLUESKY_APP_PASSWORD not set. Please configure your .env file.");
+}
+if (empty($LIST_RKEY)) {
+    die("❌ LIST_RKEY not set. Please configure your .env file with your list identifier.");
 }
 
 // Handle pagination reset
@@ -367,10 +373,10 @@ if (!empty($results['cursor'])) {
     $_SESSION['pagination_cursors'][$CURRENT_PAGE] = $results['cursor'];
 }
 
-// Filter actors for "belge" in displayName or description
-$filtered = array_filter($actors, function ($actor) {
-    return stripos($actor['displayName'] ?? '', 'belge') !== false ||
-        stripos($actor['description'] ?? '', 'belge') !== false;
+// Filter actors for the search query in displayName or description
+$filtered = array_filter($actors, function ($actor) use ($QUERY) {
+    return stripos($actor['displayName'] ?? '', $QUERY) !== false ||
+        stripos($actor['description'] ?? '', $QUERY) !== false;
 });
 
 // Sort filtered results: non-added users first, then already-added users
@@ -390,7 +396,7 @@ usort($filtered, function ($a, $b) use ($existingMembers) {
 });
 
 // Display results
-echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Bluesky Search for 'belge'</title>";
+echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Bluesky Profile Catcher - Find & Curate</title>";
 echo "<style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     .profile { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 8px; }
@@ -404,14 +410,14 @@ echo "<style>
 </style>";
 echo "</head><body>";
 
-echo "<h1>🔎 Bluesky Profiles Matching 'belge' <small>(Page $CURRENT_PAGE)</small></h1>";
+echo "<h1>🦋 Profile Catcher - Finding '$QUERY' <small>(Page $CURRENT_PAGE)</small></h1>";
 
 echo "<div class='bulk-actions'>";
 echo "<h3>📋 Target List: " . htmlspecialchars($listName) . "</h3>";
 if ($listDescription) {
     echo "<p><em>" . htmlspecialchars($listDescription) . "</em></p>";
 }
-echo "<p>Found Belgian profiles will be added to this list. <strong>New candidates shown first.</strong></p>";
+echo "<p>Profiles matching '<strong>$QUERY</strong>' will be added to this list. <strong>New candidates shown first.</strong></p>";
 echo "<p><small>Debug: Found " . count($existingMembers) . " existing list members</small></p>";
 echo "<p><small><a href='?reset_pagination=1' onclick='return confirm(\"Reset pagination and start from page 1?\")'>🔄 Reset pagination</a></small></p>";
 if (count($existingMembers) > 0) {
@@ -494,7 +500,7 @@ $newCandidates = $totalFiltered - $alreadyInList;
 echo "<hr>";
 echo "<div class='bulk-actions'>";
 echo "<h3>📊 Page $CURRENT_PAGE Statistics</h3>";
-echo "<p>Found on this page: <strong>$totalFiltered</strong> Belgian profiles matching '$QUERY'</p>";
+echo "<p>Found on this page: <strong>$totalFiltered</strong> profiles matching '<em>$QUERY</em>'</p>";
 echo "<p>Already in list: <strong>$alreadyInList</strong></p>";
 echo "<p>New candidates: <strong>$newCandidates</strong></p>";
 if (count($existingMembers) > 0) {

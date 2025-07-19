@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# PHP
+composer.lock
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

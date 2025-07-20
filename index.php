@@ -358,32 +358,32 @@ echo "<link rel='stylesheet' href='styles.css'>";
 echo "</head><body>";
 
 // Top bar with authentication and search
-echo "<div class='bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg sticky top-0 z-50'>";
-echo "<div class='max-w-6xl mx-auto px-5 py-4'>";
+echo "<div class='bg-white border-b border-gray-200 sticky top-0 z-50'>";
+echo "<div class='max-w-6xl mx-auto px-6 py-4'>";
 echo "<div class='flex items-center justify-between mb-4'>";
 echo "<div>";
-echo "<h1 class='text-2xl font-bold m-0 italic'>🦋 Bluesky Profile Catcher</h1>";
-echo "<p class='text-sm text-blue-100 m-0 mt-1'>Find and curate profiles to add to your Bluesky lists</p>";
+echo "<h1 class='text-2xl font-bold m-0 text-slate-800'>🦋 Bluesky Profile Catcher</h1>";
+echo "<p class='text-sm text-slate-600 m-0 mt-1'>Find and curate profiles to add to your Bluesky lists</p>";
 echo "</div>";
 echo "<div id='auth-status'>";
-echo "<button id='signin-btn' class='bg-cyan-500 hover:bg-cyan-600 text-white border-0 px-5 py-2.5 rounded-full text-sm font-bold cursor-pointer transition-colors duration-300'>🔐 Sign in with Bluesky</button>";
+echo "<button id='signin-btn' class='bg-slate-800 hover:bg-slate-700 text-white border-0 px-5 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-200'>🔐 Sign in with Bluesky</button>";
 echo "<div id='user-info' class='hidden'>";
-echo "<span id='user-handle' class='text-sm'></span><br>";
-echo "<button id='signout-btn' class='bg-gray-500 hover:bg-gray-600 text-white border-0 px-2.5 py-1.5 rounded-full text-xs cursor-pointer transition-colors duration-300 mt-1'>Sign out</button>";
+echo "<span id='user-handle' class='text-sm text-slate-700'></span><br>";
+echo "<button id='signout-btn' class='bg-gray-100 hover:bg-gray-200 text-slate-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors duration-200 mt-1 font-medium'>Sign out</button>";
 echo "</div>";
 echo "</div>";
 echo "</div>";
 
 // Search form (shown when logged in)
 echo "<div id='search-form-container' class='hidden'>";
-echo "<form method='get' action='' class='flex gap-3 items-center flex-wrap'>";
-echo "<label class='text-sm font-medium whitespace-nowrap'>Search profiles with:</label>";
-echo "<input type='text' name='query' value='" . htmlspecialchars($QUERY) . "' placeholder='e.g., belge, artist, developer...' class='flex-1 min-w-48 px-4 py-2 border-0 rounded-full text-base outline-none shadow-lg text-gray-900' required>";
-echo "<label class='text-sm font-medium whitespace-nowrap'>to add to list:</label>";
-echo "<select id='list-dropdown' class='bg-white border border-gray-300 rounded-full px-3 py-2 text-sm w-48 text-gray-900'>";
+echo "<form class='flex gap-4 items-center flex-wrap'>";
+echo "<label class='text-sm font-medium text-slate-700 whitespace-nowrap'>Search profiles with:</label>";
+echo "<input type='text' name='query' value='" . htmlspecialchars($QUERY) . "' placeholder='e.g., belge, artist, developer...' class='flex-1 min-w-48 px-4 py-2.5 border border-gray-300 rounded-lg text-base outline-none shadow-sm text-slate-800 placeholder-gray-400 focus:border-slate-500 focus:ring-1 focus:ring-slate-500' required>";
+echo "<label class='text-sm font-medium text-slate-700 whitespace-nowrap'>to add to list:</label>";
+echo "<select id='list-dropdown' class='bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-48 text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500'>";
 echo "<option value=''>Select a list...</option>";
 echo "</select>";
-echo "<button type='submit' class='bg-green-500 hover:bg-green-600 text-white border-0 px-6 py-2 rounded-full text-base font-bold cursor-pointer transition-colors duration-300 whitespace-nowrap flex items-center gap-2'>";
+echo "<button type='submit' class='bg-slate-800 hover:bg-slate-700 text-white border-0 px-6 py-2.5 rounded-lg text-base font-medium cursor-pointer transition-colors duration-200 whitespace-nowrap flex items-center gap-2'>";
 echo "<span class='loading-spinner hidden' id='search-spinner'></span>";
 echo "🔍 Search";
 echo "</button>";
@@ -392,52 +392,61 @@ echo "</div>";
 echo "</div>";
 echo "</div>";
 
-echo "<div class='max-w-6xl mx-auto p-5'>";
+echo "<div class='max-w-6xl mx-auto p-6'>";
 
 // Authentication instructions
-echo "<div id='auth-instructions' class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-2'>🔐 Authentication Required</h3>";
-echo "<p class='mb-2'>To search for profiles and manage your lists, please sign in with your Bluesky account.</p>";
-echo "<p class='text-sm text-gray-600'><strong>Your credentials are stored locally and never sent to our servers.</strong></p>";
+echo "<div id='auth-instructions' class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>🔐 Authentication Required</h3>";
+echo "<p class='mb-3 text-slate-700'>To search for profiles and add them to your lists, please sign in with your Bluesky account.</p>";
+echo "<p class='text-sm text-slate-600'><strong>Your credentials are stored locally and never sent to our servers.</strong></p>";
 echo "</div>";
 
 // Tab interface (shown when logged in)
 echo "<div id='tab-interface' class='hidden'>";
 echo "<div class='border-b border-gray-200 mb-6'>";
 echo "<nav class='flex space-x-8'>";
-echo "<button id='found-tab' class='tab-button active py-2 px-1 border-b-2 border-blue-500 text-blue-600 font-medium'>Found Profiles</button>";
-echo "<button id='list-tab' class='tab-button py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium'>0 Members in list: Select a list</button>";
+echo "<button id='found-tab' class='tab-button active py-3 px-1 border-b-2 border-slate-800 text-slate-800 font-medium'>Found Profiles</button>";
+echo "<button id='list-tab' class='tab-button py-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium'>0 Members in list: Select a list</button>";
 echo "</nav>";
 echo "</div>";
 
 // Found profiles tab content
 echo "<div id='found-tab-content' class='tab-content'>";
-echo "<div class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-2'>📋 Found Profiles</h3>";
-echo "<p id='found-description' class='text-sm text-gray-600'>Profiles matching your search that are not yet in your selected list.</p>";
+echo "<div class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>📋 Found Profiles</h3>";
+echo "<p id='found-description' class='text-sm text-slate-600'>Profiles matching your search that are not yet in your selected list.</p>";
 echo "</div>";
 
 echo "<div id='messages'></div>";
 
-echo "<div class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-2'>📝 Bulk Actions</h3>";
-echo "<p class='mb-3'>Select profiles below and add them to your list:</p>";
-echo "<button id='add-selected-btn' onclick='addSelectedToList()' disabled class='bg-blue-500 hover:bg-blue-600 text-white border-0 px-4 py-2 rounded cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed'>Add Selected to List</button>";
+echo "<div class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>📝 Bulk Actions</h3>";
+echo "<p class='mb-4 text-slate-700'>Select profiles below and add them to your list:</p>";
+echo "</div>";
+
+// Sticky action bar
+echo "<div class='sticky top-40 z-40 bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-6'>";
+echo "<div class='flex items-center justify-between'>";
+echo "<div class='flex items-center gap-3'>";
+echo "<button id='add-selected-btn' onclick='addSelectedToList()' disabled class='bg-slate-800 hover:bg-slate-700 text-white border-0 px-4 py-2.5 rounded-lg cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium text-sm'>Add Selected to List</button>";
+echo "</div>";
+echo "<div class='text-sm text-slate-600'><span id='selected-count'>0</span> profiles selected</div>";
+echo "</div>";
 echo "</div>";
 
 echo "<div id='profiles-container'>";
-echo "<p class='text-gray-500'>Please sign in and select a list to start searching for profiles.</p>";
+echo "<p class='text-slate-500'>Please sign in and select a list to start searching for profiles.</p>";
 echo "</div>";
 echo "</div>";
 
 // List members tab content
 echo "<div id='list-tab-content' class='tab-content hidden'>";
-echo "<div class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-2'>📋 List Members</h3>";
-echo "<p id='list-description' class='text-sm text-gray-600'></p>";
+echo "<div class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>📋 List Members</h3>";
+echo "<p id='list-description' class='text-sm text-slate-600'></p>";
 echo "</div>";
 echo "<div id='list-members-container'>";
-echo "<p class='text-gray-500'>Loading list members...</p>";
+echo "<p class='text-slate-500'>Loading list members...</p>";
 echo "</div>";
 echo "</div>";
 
@@ -448,8 +457,8 @@ echo "<div id='statistics'></div>";
 echo "<div id='pagination'></div>";
 
 echo "</div>"; // Close main-content
-echo "<hr class='my-4'>";
-echo "<p class='text-xs text-gray-500 text-center'>List URI: <span id='list-uri'>Not selected</span></p>";
+echo "<hr class='my-6 border-gray-200'>";
+echo "<p class='text-xs text-slate-500 text-center'>List URI: <span id='list-uri'>Not selected</span></p>";
 
 // Include the external JavaScript file
 echo "<script src='app.js'></script>";

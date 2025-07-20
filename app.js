@@ -17,6 +17,9 @@ let userLists = [];
 let searchResults = [];
 let currentPage = 1;
 let hasNextPage = false;
+let currentCursor = null;
+let isLoadingMore = false;
+let currentSearchQuery = '';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -40,6 +43,17 @@ function loadStoredSession() {
             clearStoredSession();
         }
     }
+
+    // Load stored selected list
+    const storedList = localStorage.getItem(STORAGE_KEYS.SELECTED_LIST);
+    if (storedList) {
+        try {
+            currentList = JSON.parse(storedList);
+        } catch (e) {
+            console.error('Error loading stored list:', e);
+            localStorage.removeItem(STORAGE_KEYS.SELECTED_LIST);
+        }
+    }
 }
 
 // Setup event listeners
@@ -52,16 +66,44 @@ function setupEventListeners() {
     document.getElementById('found-tab').addEventListener('click', () => switchTab('found'));
     document.getElementById('list-tab').addEventListener('click', () => switchTab('list'));
 
+    // Infinite scrolling
+    window.addEventListener('scroll', handleScroll);
+
+    // Setup checkbox listeners
+    setupCheckboxListeners();
+
     // Handle search form submission
     document.querySelector('form').addEventListener('submit', function(e) {
         e.preventDefault();
+        console.log('Search form submitted');
         const query = document.querySelector('input[name="query"]').value;
+        const searchButton = document.querySelector('button[type="submit"]');
+        const spinner = document.getElementById('search-spinner');
+
+        console.log('Search query:', query);
+        console.log('Current session:', !!currentSession);
+        console.log('Current list:', !!currentList);
+
         if (query && currentSession && currentList) {
-            searchProfiles(query, 1);
+            console.log('Starting search for:', query);
+
+            // Show loading state
+            searchButton.disabled = true;
+            spinner.classList.remove('hidden');
+            searchButton.innerHTML = '<span class="loading-spinner mr-2"></span>Searching...';
+
+            searchProfiles(query, 1).finally(() => {
+                // Hide loading state
+                searchButton.disabled = false;
+                spinner.classList.add('hidden');
+                searchButton.innerHTML = '🔍 Search';
+            });
         } else if (!currentSession) {
             showMessage('❌ Please sign in first', 'error');
         } else if (!currentList) {
             showMessage('❌ Please select a list first', 'error');
+        } else {
+            showMessage('❌ Please enter a search query', 'error');
         }
     });
 }
@@ -152,6 +194,23 @@ async function loadUserLists() {
 
         updateListDropdown();
 
+        // If we have a stored selected list, restore it
+        if (currentList) {
+            const dropdown = document.getElementById('list-dropdown');
+            dropdown.value = currentList.uri;
+
+            // Load list members for the restored list
+            await loadListMembers();
+
+            // Auto-trigger search if there's a query
+            const queryInput = document.querySelector('input[name="query"]');
+            if (queryInput && queryInput.value.trim()) {
+                setTimeout(() => {
+                    searchProfiles(queryInput.value.trim(), 1);
+                }, 300);
+            }
+        }
+
     } catch (error) {
         console.error('Error loading lists:', error);
         showMessage('❌ Failed to load lists: ' + error.message, 'error');
@@ -181,28 +240,40 @@ function updateListDropdown() {
 // Handle list selection
 async function onListSelected() {
     const dropdown = document.getElementById('list-dropdown');
-    const listUri = dropdown.value;
+    const selectedValue = dropdown.value;
 
-    if (!listUri) {
+    if (!selectedValue) {
         currentList = null;
         updateUI();
         return;
     }
 
-    const selectedList = userLists.find(list => list.uri === listUri);
-    if (!selectedList) return;
+    // Find the selected list
+    const selectedList = userLists.find(list => list.uri === selectedValue);
+    if (!selectedList) {
+        showMessage('❌ Selected list not found', 'error');
+        return;
+    }
 
     currentList = selectedList;
-    localStorage.setItem(STORAGE_KEYS.SELECTED_LIST, listUri);
 
-    // Show loading message
-    showMessage('🔄 Loading list members...', 'info');
+    // Store selected list
+    localStorage.setItem(STORAGE_KEYS.SELECTED_LIST, JSON.stringify(selectedList));
 
     // Load list members
     await loadListMembers();
 
+    // Update UI
     updateUI();
-    showMessage('📋 Selected list: ' + selectedList.name + ' (' + (currentList.members ? currentList.members.length : 0) + ' members)', 'success');
+
+    // Auto-trigger search if there's a query in the input field
+    const queryInput = document.querySelector('input[name="query"]');
+    if (queryInput && queryInput.value.trim()) {
+        // Small delay to ensure list members are loaded
+        setTimeout(() => {
+            searchProfiles(queryInput.value.trim(), 1);
+        }, 200);
+    }
 }
 
 // Load list members
@@ -430,7 +501,19 @@ function updateUI() {
         if (currentList) {
             document.getElementById('list-uri').textContent = currentList.uri;
             updateTabDescriptions();
+
+            // Auto-trigger search if there's a query in the input field
+            const queryInput = document.querySelector('input[name="query"]');
+            if (queryInput && queryInput.value.trim()) {
+                // Small delay to ensure UI is fully loaded
+                setTimeout(() => {
+                    searchProfiles(queryInput.value.trim(), 1);
+                }, 100);
+            }
         }
+
+        // Ensure "Found profiles" tab is active by default
+        switchTab('found');
 
     } else {
         // User is not signed in
@@ -450,17 +533,28 @@ function switchTab(tabName) {
     const listContent = document.getElementById('list-tab-content');
 
     if (tabName === 'found') {
-        foundTab.classList.add('border-blue-500', 'text-blue-600');
-        foundTab.classList.remove('border-transparent', 'text-gray-500');
-        listTab.classList.add('border-transparent', 'text-gray-500');
-        listTab.classList.remove('border-blue-500', 'text-blue-600');
+        foundTab.classList.add('border-slate-800', 'text-slate-800');
+        foundTab.classList.remove('border-transparent', 'text-slate-500');
+        listTab.classList.add('border-transparent', 'text-slate-500');
+        listTab.classList.remove('border-slate-800', 'text-slate-800');
         foundContent.classList.remove('hidden');
         listContent.classList.add('hidden');
+
+        // Auto-trigger search when switching to Found Profiles tab
+        if (currentSession && currentList) {
+            const queryInput = document.querySelector('input[name="query"]');
+            if (queryInput && queryInput.value.trim()) {
+                // Only search if we don't already have results or if it's a different query
+                if (searchResults.length === 0 || currentSearchQuery !== queryInput.value.trim()) {
+                    searchProfiles(queryInput.value.trim(), 1);
+                }
+            }
+        }
     } else {
-        listTab.classList.add('border-blue-500', 'text-blue-600');
-        listTab.classList.remove('border-transparent', 'text-gray-500');
-        foundTab.classList.add('border-transparent', 'text-gray-500');
-        foundTab.classList.remove('border-blue-500', 'text-blue-600');
+        listTab.classList.add('border-slate-800', 'text-slate-800');
+        listTab.classList.remove('border-transparent', 'text-slate-500');
+        foundTab.classList.add('border-transparent', 'text-slate-500');
+        foundTab.classList.remove('border-slate-800', 'text-slate-800');
         listContent.classList.remove('hidden');
         foundContent.classList.add('hidden');
 
@@ -502,21 +596,57 @@ function showMessage(message, type = 'info') {
 }
 
 // Search profiles
-async function searchProfiles(query, page = 1) {
-    if (!currentSession) return;
+async function searchProfiles(query, page = 1, cursor = null) {
+    console.log('searchProfiles called with query:', query, 'page:', page, 'cursor:', cursor);
+    if (!currentSession) {
+        console.log('No current session, returning');
+        return;
+    }
+
+    // Reset search results if this is a new search
+    if (page === 1) {
+        searchResults = [];
+        currentCursor = null;
+        currentSearchQuery = query;
+    }
 
     try {
-        const response = await fetch(BLUESKY_API + '/app.bsky.actor.searchActors?term=' + encodeURIComponent(query) + '&limit=25', {
+        console.log('Making API request to search actors...');
+        let url = BLUESKY_API + '/app.bsky.actor.searchActors?term=' + encodeURIComponent(query) + '&limit=50';
+        if (cursor) {
+            url += '&cursor=' + encodeURIComponent(cursor);
+        }
+
+        const response = await fetch(url, {
             headers: {
                 'Authorization': 'Bearer ' + currentSession.accessJwt
             }
         });
 
+        console.log('Search response status:', response.status);
         if (!response.ok) throw new Error('Search failed');
 
         const data = await response.json();
-        searchResults = data.actors || [];
+        console.log('Search response data:', data);
+
+        // Get new results and deduplicate
+        const newResults = data.actors || [];
+        const existingDids = new Set(searchResults.map(actor => actor.did));
+
+        // Only add profiles that aren't already in the results
+        const uniqueNewResults = newResults.filter(actor => !existingDids.has(actor.did));
+
+        console.log('New results count:', newResults.length);
+        console.log('Unique new results count:', uniqueNewResults.length);
+        console.log('Duplicates filtered out:', newResults.length - uniqueNewResults.length);
+
+        // Append unique results to existing ones
+        searchResults = searchResults.concat(uniqueNewResults);
+
+        console.log('Total search results count:', searchResults.length);
+
         currentPage = page;
+        currentCursor = data.cursor || null;
         hasNextPage = !!data.cursor;
 
         displaySearchResults();
@@ -529,78 +659,97 @@ async function searchProfiles(query, page = 1) {
 
 // Display search results
 function displaySearchResults() {
+    console.log('displaySearchResults called');
     const container = document.getElementById('profiles-container');
+    console.log('Container found:', !!container);
+    console.log('Search results length:', searchResults.length);
 
     if (searchResults.length === 0) {
-        container.innerHTML = '<p>No profiles found matching your search.</p>';
+        console.log('No search results, showing empty message');
+        container.innerHTML = '<p class="text-gray-500">No profiles found matching your search.</p>';
         return;
     }
 
-    // Filter and sort results
+    console.log('Processing search results...');
+
+    // Get the search query
+    const query = document.querySelector('input[name="query"]').value.toLowerCase();
+    console.log('Search query:', query);
+
+    // Filter results: must contain query term AND not be in the list
     const filtered = searchResults.filter(actor => {
-        const query = document.querySelector('input[name="query"]').value.toLowerCase();
-        return (actor.displayName || '').toLowerCase().includes(query) ||
-               (actor.description || '').toLowerCase().includes(query) ||
-               (actor.handle || '').toLowerCase().includes(query);
+        // Check if profile description contains the query term
+        const matchesQuery = (actor.displayName || '').toLowerCase().includes(query) ||
+                           (actor.description || '').toLowerCase().includes(query) ||
+                           (actor.handle || '').toLowerCase().includes(query);
+
+        // Check if profile is NOT already in the list
+        const notInList = !(currentList && currentList.members && currentList.members.includes(actor.did));
+
+        console.log(`Profile ${actor.handle}: matchesQuery=${matchesQuery}, notInList=${notInList}`);
+
+        return matchesQuery && notInList;
     });
 
-    // Sort: non-members first
-    filtered.sort((a, b) => {
-        const aInList = currentList && currentList.members && currentList.members.includes(a.did);
-        const bInList = currentList && currentList.members && currentList.members.includes(b.did);
+    // Deduplicate filtered results by DID
+    const uniqueFiltered = [];
+    const seenDids = new Set();
 
-        if (aInList !== bInList) {
-            return aInList ? 1 : -1;
+    filtered.forEach(actor => {
+        if (!seenDids.has(actor.did)) {
+            seenDids.add(actor.did);
+            uniqueFiltered.push(actor);
         }
-
-        return (a.displayName || a.handle).localeCompare(b.displayName || b.handle);
     });
 
-    console.log('Filtered results:', filtered.length, 'profiles');
+    console.log('Filtered results count:', filtered.length);
+    console.log('Unique filtered results count:', uniqueFiltered.length);
+    console.log('Duplicates removed from display:', filtered.length - uniqueFiltered.length);
     console.log('Current list members:', currentList ? currentList.members.length : 0);
     console.log('Sample member DIDs:', currentList && currentList.members ? currentList.members.slice(0, 3) : []);
-    console.log('Sample profile DIDs:', filtered.slice(0, 3).map(p => p.did));
+    console.log('Sample profile DIDs:', uniqueFiltered.slice(0, 3).map(p => p.did));
 
-        let html = '<div class="space-y-4">';
-    filtered.forEach(actor => {
-        const isInList = currentList && currentList.members && currentList.members.includes(actor.did);
+    // Sort by display name
+    uniqueFiltered.sort((a, b) => (a.displayName || a.handle).localeCompare(b.displayName || b.handle));
 
-        // Debug logging for first few profiles
-        if (filtered.indexOf(actor) < 3) {
-            console.log('Profile:', actor.handle, 'DID:', actor.did, 'In list:', isInList);
-        }
+    if (uniqueFiltered.length === 0) {
+        container.innerHTML = '<div class="bg-blue-50 p-4 rounded-lg border border-blue-200">';
+        container.innerHTML += '<p class="text-sm text-blue-800">📋 No new candidates found</p>';
+        container.innerHTML += '<p class="text-xs text-blue-600 mt-1">All profiles matching your search are already in the selected list.</p>';
+        container.innerHTML += '</div>';
 
-        html += '<div class="border border-gray-300 p-4 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow duration-200 profile-card">';
-        html += '<div class="flex items-start gap-3">';
+        // Update statistics with zero results
+        updateStatistics([]);
+
+        // Disable add button
+        const addBtn = document.getElementById('add-selected-btn');
+        addBtn.disabled = true;
+        return;
+    }
+
+    let html = '<div class="space-y-4">';
+    uniqueFiltered.forEach(actor => {
+        html += '<div class="border border-gray-200 p-6 rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-200 profile-card">';
+        html += '<div class="flex items-start gap-4">';
         if (actor.avatar) {
             html += '<img src="' + actor.avatar + '" alt="avatar" width="48" height="48" class="rounded-full flex-shrink-0">';
         } else {
-            html += '<div class="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center text-gray-500 text-sm">👤</div>';
+            html += '<div class="w-12 h-12 bg-gray-100 rounded-full flex-shrink-0 flex items-center justify-center text-gray-500 text-sm">👤</div>';
         }
         html += '<div class="flex-1 min-w-0">';
-        html += '<div class="flex items-center gap-2 mb-1">';
-        html += '<strong class="text-lg">' + (actor.displayName || actor.handle) + '</strong>';
-        html += '<a href="https://bsky.app/profile/' + actor.handle + '" target="_blank" class="text-blue-600 hover:text-blue-800 underline text-sm">@' + actor.handle + '</a>';
-
-        if (isInList) {
-            html += '<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Already in list</span>';
-        } else {
-            html += '<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">New candidate</span>';
-        }
+        html += '<div class="flex items-center gap-3 mb-2">';
+        html += '<strong class="text-lg text-slate-800">' + (actor.displayName || actor.handle) + '</strong>';
+        html += '<a href="https://bsky.app/profile/' + actor.handle + '" target="_blank" class="text-slate-600 hover:text-slate-800 underline text-sm">@' + actor.handle + '</a>';
+        html += '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">New candidate</span>';
         html += '</div>';
 
         if (actor.description) {
-            html += '<p class="text-gray-600 text-sm mb-3">' + actor.description + '</p>';
+            html += '<p class="text-slate-600 text-sm mb-4 leading-relaxed">' + actor.description + '</p>';
         }
 
-        html += '<div class="flex items-center gap-2">';
-        if (isInList) {
-            html += '<input type="checkbox" checked disabled id="user_' + actor.did + '" class="mr-2">';
-            html += '<label for="user_' + actor.did + '" class="text-gray-500 text-sm cursor-not-allowed">Already on the list</label>';
-        } else {
-            html += '<input type="checkbox" name="add_to_list[]" value="' + actor.did + '" id="user_' + actor.did + '" class="mr-2">';
-            html += '<label for="user_' + actor.did + '" class="text-sm cursor-pointer">Select to add to list</label>';
-        }
+        html += '<div class="flex items-center gap-3">';
+        html += '<input type="checkbox" name="add_to_list[]" value="' + actor.did + '" id="user_' + actor.did + '" class="w-4 h-4 text-slate-800 border-gray-300 rounded focus:ring-slate-500 focus:ring-2">';
+        html += '<label for="user_' + actor.did + '" class="text-sm text-slate-700 cursor-pointer font-medium">Select to add to list</label>';
         html += '</div>';
         html += '</div>';
         html += '</div>';
@@ -608,37 +757,138 @@ function displaySearchResults() {
     });
     html += '</div>';
 
+    console.log('Setting container HTML, length:', html.length);
     container.innerHTML = html;
+    console.log('Container HTML set successfully');
 
     // Update statistics
-    updateStatistics(filtered);
+    updateStatistics(uniqueFiltered);
 
-    // Enable/disable add button
+    // Show excluded profiles (already in list) in a collapsible section
+    const excludedProfiles = searchResults.filter(actor => {
+        const query = document.querySelector('input[name="query"]').value.toLowerCase();
+        const matchesQuery = (actor.displayName || '').toLowerCase().includes(query) ||
+                           (actor.description || '').toLowerCase().includes(query) ||
+                           (actor.handle || '').toLowerCase().includes(query);
+        const inList = currentList && currentList.members && currentList.members.includes(actor.did);
+        return matchesQuery && inList;
+    });
+
+    // Deduplicate excluded profiles
+    const uniqueExcludedProfiles = [];
+    const excludedSeenDids = new Set();
+
+    excludedProfiles.forEach(actor => {
+        if (!excludedSeenDids.has(actor.did)) {
+            excludedSeenDids.add(actor.did);
+            uniqueExcludedProfiles.push(actor);
+        }
+    });
+
+    if (uniqueExcludedProfiles.length > 0) {
+        html += '<div class="mt-6">';
+        html += '<details class="bg-gray-50 p-4 rounded-lg border border-gray-200">';
+        html += '<summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">';
+        html += '📋 Show ' + uniqueExcludedProfiles.length + ' profiles already in list (click to expand)';
+        html += '</summary>';
+        html += '<div class="mt-3 space-y-3">';
+
+        uniqueExcludedProfiles.forEach(actor => {
+            html += '<div class="border border-gray-200 p-3 rounded-lg bg-white opacity-75">';
+            html += '<div class="flex items-start gap-3">';
+            if (actor.avatar) {
+                html += '<img src="' + actor.avatar + '" alt="avatar" width="32" height="32" class="rounded-full flex-shrink-0">';
+            } else {
+                html += '<div class="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center text-gray-500 text-xs">👤</div>';
+            }
+            html += '<div class="flex-1 min-w-0">';
+            html += '<div class="flex items-center gap-2 mb-1">';
+            html += '<strong class="text-sm">' + (actor.displayName || actor.handle) + '</strong>';
+            html += '<a href="https://bsky.app/profile/' + actor.handle + '" target="_blank" class="text-blue-600 hover:text-blue-800 underline text-xs">@' + actor.handle + '</a>';
+            html += '<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Already in list</span>';
+            html += '</div>';
+            if (actor.description) {
+                html += '<p class="text-gray-600 text-xs">' + actor.description + '</p>';
+            }
+            html += '</div>';
+            html += '</div>';
+            html += '</div>';
+        });
+
+        html += '</div>';
+        html += '</details>';
+        html += '</div>';
+    }
+
+    // Add load more button if there are more results available
+    if (hasNextPage && !isLoadingMore) {
+        html += '<div class="mt-6 text-center">';
+        html += '<button onclick="loadMoreProfiles()" class="bg-blue-500 hover:bg-blue-600 text-white border-0 px-6 py-3 rounded-lg cursor-pointer transition-colors duration-200 font-medium">';
+        html += '<span class="loading-spinner mr-2 hidden" id="load-more-spinner"></span>';
+        html += '📄 Load More Profiles';
+        html += '</button>';
+        html += '<p class="text-xs text-gray-500 mt-2">Or scroll down to load automatically</p>';
+        html += '</div>';
+    }
+
+    // Show loading state if currently loading more
+    if (isLoadingMore) {
+        html += '<div class="mt-6 flex items-center justify-center py-4 text-gray-600">';
+        html += '<div class="loading-spinner mr-3"></div>';
+        html += '<span>Loading more profiles...</span>';
+        html += '</div>';
+    }
+
+    // Show end message if no more results
+    if (!hasNextPage && searchResults.length > 0) {
+        html += '<div class="mt-6 text-center">';
+        html += '<div class="bg-gray-50 p-4 rounded-lg border border-gray-200">';
+        html += '<p class="text-sm text-gray-600">🏁 No more profiles found</p>';
+        html += '<p class="text-xs text-gray-500 mt-1">You\'ve reached the end of the search results</p>';
+        html += '</div>';
+        html += '</div>';
+    }
+
+    // Enable add button since all shown profiles are new candidates
     const addBtn = document.getElementById('add-selected-btn');
-    const availableProfiles = filtered.filter(a => !currentList.members.includes(a.did));
-    addBtn.disabled = availableProfiles.length === 0;
-    console.log('Available profiles for adding:', availableProfiles.length);
+    addBtn.disabled = uniqueFiltered.length === 0;
+    console.log('Available profiles for adding:', uniqueFiltered.length);
 }
 
 // Update statistics
 function updateStatistics(filtered) {
     const statsDiv = document.getElementById('statistics');
-    const totalFiltered = filtered.length;
-    const alreadyInList = filtered.filter(actor =>
-        currentList && currentList.members && currentList.members.includes(actor.did)
-    ).length;
-    const newCandidates = totalFiltered - alreadyInList;
+    const totalFound = searchResults.length;
+    const newCandidates = filtered.length;
+    const alreadyInList = totalFound - newCandidates;
 
-    let html = '<div class="bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200">';
-    html += '<h3 class="text-lg font-semibold mb-3">📊 Search Statistics</h3>';
-    html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">';
-    html += '<div class="text-center"><span class="block text-2xl font-bold text-blue-600">' + totalFiltered + '</span><span class="text-gray-600">Total Found</span></div>';
-    html += '<div class="text-center"><span class="block text-2xl font-bold text-green-600">' + newCandidates + '</span><span class="text-gray-600">New Candidates</span></div>';
-    html += '<div class="text-center"><span class="block text-2xl font-bold text-gray-600">' + alreadyInList + '</span><span class="text-gray-600">Already in List</span></div>';
+    let html = '<div class="bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200">';
+    html += '<h3 class="text-lg font-semibold mb-4 text-slate-800">📊 Search Statistics</h3>';
+    html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">';
+    html += '<div class="text-center"><span class="block text-3xl font-bold text-slate-800">' + totalFound + '</span><span class="text-slate-600">Total Found</span></div>';
+    html += '<div class="text-center"><span class="block text-3xl font-bold text-blue-600">' + newCandidates + '</span><span class="text-slate-600">New Candidates</span></div>';
+    html += '<div class="text-center"><span class="block text-3xl font-bold text-slate-500">' + alreadyInList + '</span><span class="text-slate-600">Already in List</span></div>';
     if (currentList && currentList.members) {
-        html += '<div class="text-center"><span class="block text-2xl font-bold text-purple-600">' + currentList.members.length + '</span><span class="text-gray-600">List Total</span></div>';
+        html += '<div class="text-center"><span class="block text-3xl font-bold text-slate-700">' + currentList.members.length + '</span><span class="text-slate-600">List Total</span></div>';
     }
     html += '</div>';
+
+    // Add search progress information
+    if (hasNextPage) {
+        html += '<div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">';
+        html += '<p class="text-sm text-blue-800 font-medium">🔄 Search in progress...</p>';
+        html += '<p class="text-xs text-blue-600 mt-1">Scroll down or click "Load More" to find additional profiles</p>';
+        html += '</div>';
+    }
+
+    // Add explanation if no new candidates found
+    if (newCandidates === 0 && totalFound > 0) {
+        html += '<div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">';
+        html += '<p class="text-sm text-blue-800 font-medium">💡 All ' + totalFound + ' profiles found are already in your list.</p>';
+        html += '<p class="text-xs text-blue-600 mt-1">Try a different search term or scroll down to load more results.</p>';
+        html += '</div>';
+    }
+
     html += '</div>';
 
     statsDiv.innerHTML = html;
@@ -713,4 +963,73 @@ function resetPagination() {
     if (query) {
         searchProfiles(query, 1);
     }
+}
+
+// Load more profiles when scrolling down
+async function loadMoreProfiles() {
+    if (isLoadingMore || !hasNextPage || !currentSearchQuery) {
+        return;
+    }
+
+    console.log('Loading more profiles...');
+    isLoadingMore = true;
+
+    // Show loading indicator
+    const container = document.getElementById('profiles-container');
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'flex items-center justify-center py-4 text-gray-600';
+    loadingDiv.innerHTML = '<div class="loading-spinner mr-3"></div><span>Loading more profiles...</span>';
+    container.appendChild(loadingDiv);
+
+    try {
+        await searchProfiles(currentSearchQuery, currentPage + 1, currentCursor);
+    } finally {
+        isLoadingMore = false;
+        // Remove loading indicator
+        if (loadingDiv.parentNode) {
+            loadingDiv.remove();
+        }
+    }
+}
+
+// Check if user has scrolled to bottom
+function isScrolledToBottom() {
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+
+    // Trigger when user is within 100px of bottom
+    return (scrollTop + windowHeight) >= (documentHeight - 100);
+}
+
+// Handle scroll events for infinite loading
+function handleScroll() {
+    if (isScrolledToBottom()) {
+        loadMoreProfiles();
+    }
+}
+
+// Update selected count display
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('input[name="add_to_list[]"]:checked');
+    const selectedCount = checkboxes.length;
+    const selectedCountElement = document.getElementById('selected-count');
+    if (selectedCountElement) {
+        selectedCountElement.textContent = selectedCount;
+    }
+
+    // Update add button state
+    const addBtn = document.getElementById('add-selected-btn');
+    if (addBtn) {
+        addBtn.disabled = selectedCount === 0;
+    }
+}
+
+// Add event listeners for checkboxes
+function setupCheckboxListeners() {
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'add_to_list[]') {
+            updateSelectedCount();
+        }
+    });
 }

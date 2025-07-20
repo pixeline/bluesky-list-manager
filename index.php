@@ -31,13 +31,10 @@ function loadEnv($path = '.env')
 // Load environment variables
 loadEnv();
 
-// CONFIGURATION from environment variables
-$BLUESKY_HANDLE = getenv('BLUESKY_HANDLE') ?: '';
-$BLUESKY_APP_PASSWORD = getenv('BLUESKY_APP_PASSWORD') ?: '';
+// CONFIGURATION from environment variables (fallback only)
 $DEFAULT_QUERY = getenv('QUERY') ?: 'artist';
 $PAGE_SIZE = (int)(getenv('PAGE_SIZE') ?: 25);
 $CURRENT_PAGE = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$LIST_RKEY = getenv('LIST_RKEY') ?: '';
 
 // Handle search query from form or URL parameter
 $QUERY = '';
@@ -49,16 +46,20 @@ if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
     $QUERY = $DEFAULT_QUERY;
 }
 
-// Validate required environment variables
-if (empty($BLUESKY_HANDLE)) {
-    die("❌ BLUESKY_HANDLE not set. Please configure your .env file.");
-}
-if (empty($BLUESKY_APP_PASSWORD)) {
-    die("❌ BLUESKY_APP_PASSWORD not set. Please configure your .env file.");
-}
-if (empty($LIST_RKEY)) {
-    die("❌ LIST_RKEY not set. Please configure your .env file with your list identifier.");
-}
+// Check if user is authenticated (will be handled by JavaScript)
+$isAuthenticated = false;
+$session = null;
+$listName = 'Select a list';
+$listDescription = '';
+$existingMembers = [];
+
+// Validate required environment variables (only for fallback mode)
+$BLUESKY_HANDLE = getenv('BLUESKY_HANDLE') ?: '';
+$BLUESKY_APP_PASSWORD = getenv('BLUESKY_APP_PASSWORD') ?: '';
+$LIST_RKEY = getenv('LIST_RKEY') ?: '';
+
+// Check if we have fallback credentials (for demo mode)
+$hasFallbackCredentials = !empty($BLUESKY_HANDLE) && !empty($BLUESKY_APP_PASSWORD) && !empty($LIST_RKEY);
 
 // Handle pagination reset
 if (isset($_GET['reset_pagination'])) {
@@ -337,297 +338,120 @@ function get_list_members($token, $listUri)
     return $existingMembers;
 }
 
-// Authenticate with Bluesky
-$session = bluesky_login($BLUESKY_HANDLE, $BLUESKY_APP_PASSWORD);
-if (!$session || !isset($session['accessJwt'])) {
-    die("❌ Failed to authenticate with Bluesky API.");
-}
+// Authentication and list loading will be handled by JavaScript
+// This allows users to sign in with their own credentials and select their own lists
 
-$token = $session['accessJwt'];
-$sessionDid = $session['did'];
-
-// Construct the list URI using the authenticated user's DID
-$LIST_URI = "at://$sessionDid/app.bsky.graph.list/$LIST_RKEY";
-
-// Get list information
-$listInfo = get_list_info($token, $LIST_URI);
-$listName = $listInfo['name'] ?? 'Unknown List';
-$listDescription = $listInfo['description'] ?? '';
-
-// Get existing list members to avoid duplicates and show status
-$existingMembers = get_list_members($token, $LIST_URI);
-
-// Handle add to list action
+// Handle add to list action (will be handled by JavaScript)
 $addedToList = [];
 $addErrors = [];
-if (isset($_POST['add_to_list']) && is_array($_POST['add_to_list'])) {
-    foreach ($_POST['add_to_list'] as $actorDid) {
-        if (in_array($actorDid, $existingMembers)) {
-            continue; // Skip if already in list
-        }
 
-        $result = add_to_list($token, $actorDid, $LIST_URI, $sessionDid);
-        if ($result['success']) {
-            $addedToList[] = $actorDid;
-            // Add to existing members to prevent re-display issues
-            $existingMembers[] = $actorDid;
-        } else {
-            $addErrors[] = $actorDid . ' (Error: ' . $result['httpCode'] . ')';
-        }
-    }
-}
-
-// Search actors
-$results = search_actors($token, $QUERY, $PAGE_SIZE, $CURSOR);
-$actors = $results['actors'] ?? [];
-
-// Store cursor for next page if it exists
-if (!empty($results['cursor'])) {
-    $_SESSION['pagination_cursors'][$CURRENT_PAGE] = $results['cursor'];
-}
-
-// Filter actors for the search query in displayName or description
-$filtered = array_filter($actors, function ($actor) use ($QUERY) {
-    return stripos($actor['displayName'] ?? '', $QUERY) !== false ||
-        stripos($actor['description'] ?? '', $QUERY) !== false;
-});
-
-// Sort filtered results: non-added users first, then already-added users
-usort($filtered, function ($a, $b) use ($existingMembers) {
-    $aInList = in_array($a['did'], $existingMembers);
-    $bInList = in_array($b['did'], $existingMembers);
-
-    // If one is in list and other isn't, prioritize the one not in list
-    if ($aInList !== $bInList) {
-        return $aInList ? 1 : -1; // Non-added users first
-    }
-
-    // If both have same status, sort by display name
-    $aName = $a['displayName'] ?? $a['handle'];
-    $bName = $b['displayName'] ?? $b['handle'];
-    return strcasecmp($aName, $bName);
-});
+// Search actors (will be handled by JavaScript)
+$results = ['actors' => []];
+$actors = [];
+$filtered = [];
 
 // Display results
 echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Bluesky Profile Catcher - Find & Curate</title>";
-echo "<style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-
-    /* Top bar styles */
-    .top-bar {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px 0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-    }
-    .top-bar-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 20px;
-    }
-    .top-bar h1 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: bold;
-    }
-    .search-form {
-        display: flex;
-        gap: 10px;
-        flex: 1;
-        max-width: 600px;
-        margin: 0 20px;
-    }
-    .search-input {
-        flex: 1;
-        padding: 12px 16px;
-        border: none;
-        border-radius: 25px;
-        font-size: 16px;
-        outline: none;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .search-button {
-        background: #28a745;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 25px;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: background 0.3s;
-    }
-    .search-button:hover {
-        background: #218838;
-    }
-    .list-info {
-        text-align: right;
-        font-size: 14px;
-    }
-
-    /* Main content */
-    .main-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    /* Existing styles */
-    .profile { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 8px; }
-    .avatar { vertical-align: middle; border-radius: 50%; margin-right: 10px; }
-    .actions { margin-top: 10px; }
-    .success { background-color: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin: 10px 0; }
-    .error { background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin: 10px 0; }
-    button { background-color: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-    button:hover { background-color: #0056b3; }
-    .bulk-actions { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-        .top-bar-content {
-            flex-direction: column;
-            text-align: center;
-        }
-        .search-form {
-            width: 100%;
-            max-width: none;
-            margin: 10px 0;
-        }
-        .list-info {
-            text-align: center;
-        }
-    }
-</style>";
+echo "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+echo "<script src='https://cdn.tailwindcss.com'></script>";
+echo "<link rel='stylesheet' href='styles.css'>";
 echo "</head><body>";
 
-// Top bar with search form
-echo "<div class='top-bar'>";
-echo "<div class='top-bar-content'>";
-echo "<h1>🦋 Profile Catcher</h1>";
+// Top bar with authentication and search
+echo "<div class='bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg sticky top-0 z-50'>";
+echo "<div class='max-w-6xl mx-auto px-5 py-4'>";
+echo "<div class='flex items-center justify-between mb-4'>";
+echo "<div>";
+echo "<h1 class='text-2xl font-bold m-0 italic'>🦋 Bluesky Profile Catcher</h1>";
+echo "<p class='text-sm text-blue-100 m-0 mt-1'>Find and curate profiles to add to your Bluesky lists</p>";
+echo "</div>";
+echo "<div id='auth-status'>";
+echo "<button id='signin-btn' class='bg-cyan-500 hover:bg-cyan-600 text-white border-0 px-5 py-2.5 rounded-full text-sm font-bold cursor-pointer transition-colors duration-300'>🔐 Sign in with Bluesky</button>";
+echo "<div id='user-info' class='hidden'>";
+echo "<span id='user-handle' class='text-sm'></span><br>";
+echo "<button id='signout-btn' class='bg-gray-500 hover:bg-gray-600 text-white border-0 px-2.5 py-1.5 rounded-full text-xs cursor-pointer transition-colors duration-300 mt-1'>Sign out</button>";
+echo "</div>";
+echo "</div>";
+echo "</div>";
 
-echo "<form method='get' action='' class='search-form'>";
-echo "<input type='text' name='query' value='" . htmlspecialchars($QUERY) . "' placeholder='Search for profiles (e.g., belge, artist, developer...)' class='search-input' required>";
-echo "<button type='submit' class='search-button'>🔍 Search</button>";
+// Search form (shown when logged in)
+echo "<div id='search-form-container' class='hidden'>";
+echo "<form method='get' action='' class='flex gap-3 items-center flex-wrap'>";
+echo "<label class='text-sm font-medium whitespace-nowrap'>Search profiles with:</label>";
+echo "<input type='text' name='query' value='" . htmlspecialchars($QUERY) . "' placeholder='e.g., belge, artist, developer...' class='flex-1 min-w-48 px-4 py-2 border-0 rounded-full text-base outline-none shadow-lg text-gray-900' required>";
+echo "<label class='text-sm font-medium whitespace-nowrap'>to add to list:</label>";
+echo "<select id='list-dropdown' class='bg-white border border-gray-300 rounded-full px-3 py-2 text-sm w-48 text-gray-900'>";
+echo "<option value=''>Select a list...</option>";
+echo "</select>";
+echo "<button type='submit' class='bg-green-500 hover:bg-green-600 text-white border-0 px-6 py-2 rounded-full text-base font-bold cursor-pointer transition-colors duration-300 whitespace-nowrap flex items-center gap-2'>";
+echo "<span class='loading-spinner hidden' id='search-spinner'></span>";
+echo "🔍 Search";
+echo "</button>";
 echo "</form>";
-
-echo "<div class='list-info'>";
-echo "<strong>📋 " . htmlspecialchars($listName) . "</strong><br>";
-echo "<small>" . count($existingMembers) . " members</small>";
 echo "</div>";
 echo "</div>";
 echo "</div>";
 
-echo "<div class='main-content'>";
-echo "<h2>Searching for: <strong>" . htmlspecialchars($QUERY) . "</strong> <small>(Page $CURRENT_PAGE)</small></h2>";
+echo "<div class='max-w-6xl mx-auto p-5'>";
 
-echo "<div class='bulk-actions'>";
-echo "<h3>📋 Target List: " . htmlspecialchars($listName) . "</h3>";
-if ($listDescription) {
-    echo "<p><em>" . htmlspecialchars($listDescription) . "</em></p>";
-}
-echo "<p>Profiles matching '<strong>" . htmlspecialchars($QUERY) . "</strong>' will be added to this list. <strong>New candidates shown first.</strong></p>";
-echo "<p><small><a href='?reset_pagination=1&query=" . urlencode($QUERY) . "' onclick='return confirm(\"Reset pagination and start from page 1?\")'>🔄 Reset pagination</a></small></p>";
-if (count($existingMembers) > 0) {
-    echo "<details><summary><small>Show existing member DIDs (first 5)</small></summary>";
-    echo "<pre style='font-size: 11px;'>" . htmlspecialchars(implode("\n", array_slice($existingMembers, 0, 5))) . "</pre>";
-    echo "</details>";
-}
-if (count($filtered) > 0) {
-    $searchResultDids = array_map(function ($actor) {
-        return $actor['did'];
-    }, array_slice($filtered, 0, 3));
-    echo "<details><summary><small>Show search result DIDs (first 3)</small></summary>";
-    echo "<pre style='font-size: 11px;'>" . htmlspecialchars(implode("\n", $searchResultDids)) . "</pre>";
-    echo "</details>";
-}
+// Authentication instructions
+echo "<div id='auth-instructions' class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-2'>🔐 Authentication Required</h3>";
+echo "<p class='mb-2'>To search for profiles and manage your lists, please sign in with your Bluesky account.</p>";
+echo "<p class='text-sm text-gray-600'><strong>Your credentials are stored locally and never sent to our servers.</strong></p>";
 echo "</div>";
 
-// Show success/error messages
-if (!empty($addedToList)) {
-    echo "<div class='success'>✅ Successfully added " . count($addedToList) . " user(s) to your list!</div>";
-}
-if (!empty($addErrors)) {
-    echo "<div class='error'>❌ Failed to add: " . implode(', ', $addErrors) . "</div>";
-}
-
-echo "<form method='post' action='?page=$CURRENT_PAGE&query=" . urlencode($QUERY) . "'>";
-echo "<div class='bulk-actions'>";
-echo "<h3>📝 Bulk Actions</h3>";
-echo "<p>Select users below and click this button to add them all to <strong>" . htmlspecialchars($listName) . "</strong>:</p>";
-echo "<button type='submit' name='add_selected' onclick='return confirm(\"Add selected users to list?\")'>Add Selected to List</button>";
+// Tab interface (shown when logged in)
+echo "<div id='tab-interface' class='hidden'>";
+echo "<div class='border-b border-gray-200 mb-6'>";
+echo "<nav class='flex space-x-8'>";
+echo "<button id='found-tab' class='tab-button active py-2 px-1 border-b-2 border-blue-500 text-blue-600 font-medium'>Found Profiles</button>";
+echo "<button id='list-tab' class='tab-button py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium'>0 Members in list: Select a list</button>";
+echo "</nav>";
 echo "</div>";
 
-foreach ($filtered as $actor) {
-    $handle = htmlspecialchars($actor['handle']);
-    $name = htmlspecialchars($actor['displayName'] ?? $handle);
-    $desc = htmlspecialchars($actor['description'] ?? '');
-    $avatar = htmlspecialchars($actor['avatar'] ?? '');
-    $link = "https://bsky.app/profile/" . urlencode($handle);
-    $actorDid = htmlspecialchars($actor['did']);
-    $isInList = in_array($actor['did'], $existingMembers);
-
-    echo "<div class='profile'>";
-    if ($avatar) {
-        echo "<img src='$avatar' alt='avatar' width='48' class='avatar'>";
-    }
-    echo "<strong>$name</strong> (<a href='$link' target='_blank'>@$handle</a>)";
-
-    if ($isInList) {
-        echo " <span style='color: green; font-weight: bold;'>✓ Already in list</span>";
-    }
-
-    echo "<br><small>$desc</small>";
-    echo "<div class='actions'>";
-
-    if ($isInList) {
-        echo "<input type='checkbox' checked disabled id='user_$actorDid'> ";
-        echo "<label for='user_$actorDid' style='color: #666;'>Already on the list</label>";
-    } else {
-        echo "<input type='checkbox' name='add_to_list[]' value='$actorDid' id='user_$actorDid'> ";
-        echo "<label for='user_$actorDid'>Select to add to list</label>";
-    }
-
-    echo "</div>";
-    echo "</div>";
-}
-
-echo "</form>";
-
-// Pagination
-$hasNextPage = !empty($results['cursor']);
-echo generate_pagination($CURRENT_PAGE, $hasNextPage, 7, $QUERY);
-
-// Statistics
-$totalFiltered = count($filtered);
-$alreadyInList = count(array_filter($filtered, function ($actor) use ($existingMembers) {
-    return in_array($actor['did'], $existingMembers);
-}));
-$newCandidates = $totalFiltered - $alreadyInList;
-
-echo "<hr>";
-echo "<div class='bulk-actions'>";
-echo "<h3>📊 Page $CURRENT_PAGE Statistics</h3>";
-echo "<p>Found on this page: <strong>$totalFiltered</strong> profiles matching '<em>$QUERY</em>'</p>";
-echo "<p>Already in list: <strong>$alreadyInList</strong></p>";
-echo "<p>New candidates: <strong>$newCandidates</strong></p>";
-if (count($existingMembers) > 0) {
-    echo "<p>Total list members: <strong>" . count($existingMembers) . "</strong></p>";
-}
-if ($hasNextPage) {
-    echo "<p><em>More results available on next pages...</em></p>";
-} else {
-    echo "<p><em>This is the last page of results.</em></p>";
-}
+// Found profiles tab content
+echo "<div id='found-tab-content' class='tab-content'>";
+echo "<div class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-2'>📋 Found Profiles</h3>";
+echo "<p id='found-description' class='text-sm text-gray-600'>Profiles matching your search that are not yet in your selected list.</p>";
 echo "</div>";
+
+echo "<div id='messages'></div>";
+
+echo "<div class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-2'>📝 Bulk Actions</h3>";
+echo "<p class='mb-3'>Select profiles below and add them to your list:</p>";
+echo "<button id='add-selected-btn' onclick='addSelectedToList()' disabled class='bg-blue-500 hover:bg-blue-600 text-white border-0 px-4 py-2 rounded cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed'>Add Selected to List</button>";
+echo "</div>";
+
+echo "<div id='profiles-container'>";
+echo "<p class='text-gray-500'>Please sign in and select a list to start searching for profiles.</p>";
+echo "</div>";
+echo "</div>";
+
+// List members tab content
+echo "<div id='list-tab-content' class='tab-content hidden'>";
+echo "<div class='bg-gray-50 p-4 rounded-lg mb-5 border border-gray-200'>";
+echo "<h3 class='text-lg font-semibold mb-2'>📋 List Members</h3>";
+echo "<p id='list-description' class='text-sm text-gray-600'></p>";
+echo "</div>";
+echo "<div id='list-members-container'>";
+echo "<p class='text-gray-500'>Loading list members...</p>";
+echo "</div>";
+echo "</div>";
+
+echo "</div>"; // Close tab-interface
+
+// Statistics and pagination
+echo "<div id='statistics'></div>";
+echo "<div id='pagination'></div>";
 
 echo "</div>"; // Close main-content
-echo "<hr><p><small>List URI: $LIST_URI</small></p>";
+echo "<hr class='my-4'>";
+echo "<p class='text-xs text-gray-500 text-center'>List URI: <span id='list-uri'>Not selected</span></p>";
+
+// Include the external JavaScript file
+echo "<script src='app.js'></script>";
+
 echo "</body></html>";

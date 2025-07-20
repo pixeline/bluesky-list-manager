@@ -18,6 +18,8 @@ WORKDIR /var/www/html
 
 # Copy application files
 COPY index.php /var/www/html/
+COPY app.js /var/www/html/
+COPY styles.css /var/www/html/
 COPY .env.example /var/www/html/
 
 # Create data directory for any persistent storage

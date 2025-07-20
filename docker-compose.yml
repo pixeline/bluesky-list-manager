@@ -1,22 +1,23 @@
 services:
   bluesky-profile-catcher:
-    build: .
-    container_name: bluesky-profile-catcher
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+    container_name: bluesky-profile-catcher-php
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8080:80"
     environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - HOST=0.0.0.0
-      - ORIGIN=http://localhost:3000
+      - APACHE_DOCUMENT_ROOT=/var/www/html
     volumes:
+      # Mount source code for live development
+      - .:/var/www/html
       # Optional: Mount a volume for persistent data if needed
-      - ./data:/app/data
+      - ./data:/var/www/html/data
     networks:
       - bluesky-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "curl", "-f", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3

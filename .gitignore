@@ -1,23 +1,31 @@
-node_modules
+# PHP
+vendor/
+composer.phar
+composer.lock
 
-# Output
-.output
-.vercel
-.netlify
-.wrangler
-/.svelte-kit
-/build
+# Environment files
+.env
+.env.*
+!.env.example
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Env
-.env
-.env.*
-!.env.example
-!.env.test
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Vite
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+# Logs
+*.log
+error_log
+access_log
+
+# Data directory (if used for storing data)
+/data/*
+!/data/.gitkeep
+
+# Docker
+.dockerignore

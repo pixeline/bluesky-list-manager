@@ -34,10 +34,20 @@ loadEnv();
 // CONFIGURATION from environment variables
 $BLUESKY_HANDLE = getenv('BLUESKY_HANDLE') ?: '';
 $BLUESKY_APP_PASSWORD = getenv('BLUESKY_APP_PASSWORD') ?: '';
-$QUERY = getenv('QUERY') ?: 'artist';
+$DEFAULT_QUERY = getenv('QUERY') ?: 'artist';
 $PAGE_SIZE = (int)(getenv('PAGE_SIZE') ?: 25);
 $CURRENT_PAGE = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $LIST_RKEY = getenv('LIST_RKEY') ?: '';
+
+// Handle search query from form or URL parameter
+$QUERY = '';
+if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
+    $QUERY = trim($_GET['query']);
+} elseif (isset($_POST['query']) && !empty(trim($_POST['query']))) {
+    $QUERY = trim($_POST['query']);
+} else {
+    $QUERY = $DEFAULT_QUERY;
+}
 
 // Validate required environment variables
 if (empty($BLUESKY_HANDLE)) {
@@ -53,7 +63,7 @@ if (empty($LIST_RKEY)) {
 // Handle pagination reset
 if (isset($_GET['reset_pagination'])) {
     $_SESSION['pagination_cursors'] = [];
-    header('Location: ?page=1');
+    header('Location: ?page=1&query=' . urlencode($QUERY));
     exit;
 }
 
@@ -168,7 +178,7 @@ function add_to_list($token, $userDid, $listUri, $sessionDid)
 }
 
 // Function to generate pagination HTML
-function generate_pagination($currentPage, $hasNextPage, $maxDisplayPages = 7)
+function generate_pagination($currentPage, $hasNextPage, $maxDisplayPages = 7, $query = '')
 {
     if ($currentPage == 1 && !$hasNextPage) {
         return ''; // No pagination needed for single page
@@ -198,9 +208,12 @@ function generate_pagination($currentPage, $hasNextPage, $maxDisplayPages = 7)
         }
     </style>';
 
+    // Build query string
+    $queryString = $query ? '&query=' . urlencode($query) : '';
+
     // Previous button
     if ($currentPage > 1) {
-        $html .= '<a href="?page=' . ($currentPage - 1) . '">&laquo; Previous</a>';
+        $html .= '<a href="?page=' . ($currentPage - 1) . $queryString . '">&laquo; Previous</a>';
     } else {
         $html .= '<span class="disabled">&laquo; Previous</span>';
     }
@@ -217,7 +230,7 @@ function generate_pagination($currentPage, $hasNextPage, $maxDisplayPages = 7)
 
     // First page + ellipsis if needed
     if ($startPage > 1) {
-        $html .= '<a href="?page=1">1</a>';
+        $html .= '<a href="?page=1' . $queryString . '">1</a>';
         if ($startPage > 2) {
             $html .= '<span class="disabled">...</span>';
         }
@@ -228,13 +241,13 @@ function generate_pagination($currentPage, $hasNextPage, $maxDisplayPages = 7)
         if ($i == $currentPage) {
             $html .= '<span class="current">' . $i . '</span>';
         } else {
-            $html .= '<a href="?page=' . $i . '">' . $i . '</a>';
+            $html .= '<a href="?page=' . $i . $queryString . '">' . $i . '</a>';
         }
     }
 
     // Next button
     if ($hasNextPage) {
-        $html .= '<a href="?page=' . ($currentPage + 1) . '">Next &raquo;</a>';
+        $html .= '<a href="?page=' . ($currentPage + 1) . $queryString . '">Next &raquo;</a>';
     } else {
         $html .= '<span class="disabled">Next &raquo;</span>';
     }
@@ -398,7 +411,76 @@ usort($filtered, function ($a, $b) use ($existingMembers) {
 // Display results
 echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Bluesky Profile Catcher - Find & Curate</title>";
 echo "<style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+
+    /* Top bar styles */
+    .top-bar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px 0;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+    .top-bar-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    .top-bar h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: bold;
+    }
+    .search-form {
+        display: flex;
+        gap: 10px;
+        flex: 1;
+        max-width: 600px;
+        margin: 0 20px;
+    }
+    .search-input {
+        flex: 1;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 25px;
+        font-size: 16px;
+        outline: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .search-button {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .search-button:hover {
+        background: #218838;
+    }
+    .list-info {
+        text-align: right;
+        font-size: 14px;
+    }
+
+    /* Main content */
+    .main-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* Existing styles */
     .profile { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 8px; }
     .avatar { vertical-align: middle; border-radius: 50%; margin-right: 10px; }
     .actions { margin-top: 10px; }
@@ -407,19 +489,52 @@ echo "<style>
     button { background-color: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
     button:hover { background-color: #0056b3; }
     .bulk-actions { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .top-bar-content {
+            flex-direction: column;
+            text-align: center;
+        }
+        .search-form {
+            width: 100%;
+            max-width: none;
+            margin: 10px 0;
+        }
+        .list-info {
+            text-align: center;
+        }
+    }
 </style>";
 echo "</head><body>";
 
-echo "<h1>🦋 Profile Catcher - Finding '$QUERY' <small>(Page $CURRENT_PAGE)</small></h1>";
+// Top bar with search form
+echo "<div class='top-bar'>";
+echo "<div class='top-bar-content'>";
+echo "<h1>🦋 Profile Catcher</h1>";
+
+echo "<form method='get' action='' class='search-form'>";
+echo "<input type='text' name='query' value='" . htmlspecialchars($QUERY) . "' placeholder='Search for profiles (e.g., belge, artist, developer...)' class='search-input' required>";
+echo "<button type='submit' class='search-button'>🔍 Search</button>";
+echo "</form>";
+
+echo "<div class='list-info'>";
+echo "<strong>📋 " . htmlspecialchars($listName) . "</strong><br>";
+echo "<small>" . count($existingMembers) . " members</small>";
+echo "</div>";
+echo "</div>";
+echo "</div>";
+
+echo "<div class='main-content'>";
+echo "<h2>Searching for: <strong>" . htmlspecialchars($QUERY) . "</strong> <small>(Page $CURRENT_PAGE)</small></h2>";
 
 echo "<div class='bulk-actions'>";
 echo "<h3>📋 Target List: " . htmlspecialchars($listName) . "</h3>";
 if ($listDescription) {
     echo "<p><em>" . htmlspecialchars($listDescription) . "</em></p>";
 }
-echo "<p>Profiles matching '<strong>$QUERY</strong>' will be added to this list. <strong>New candidates shown first.</strong></p>";
-echo "<p><small>Debug: Found " . count($existingMembers) . " existing list members</small></p>";
-echo "<p><small><a href='?reset_pagination=1' onclick='return confirm(\"Reset pagination and start from page 1?\")'>🔄 Reset pagination</a></small></p>";
+echo "<p>Profiles matching '<strong>" . htmlspecialchars($QUERY) . "</strong>' will be added to this list. <strong>New candidates shown first.</strong></p>";
+echo "<p><small><a href='?reset_pagination=1&query=" . urlencode($QUERY) . "' onclick='return confirm(\"Reset pagination and start from page 1?\")'>🔄 Reset pagination</a></small></p>";
 if (count($existingMembers) > 0) {
     echo "<details><summary><small>Show existing member DIDs (first 5)</small></summary>";
     echo "<pre style='font-size: 11px;'>" . htmlspecialchars(implode("\n", array_slice($existingMembers, 0, 5))) . "</pre>";
@@ -443,7 +558,7 @@ if (!empty($addErrors)) {
     echo "<div class='error'>❌ Failed to add: " . implode(', ', $addErrors) . "</div>";
 }
 
-echo "<form method='post' action='?page=$CURRENT_PAGE'>";
+echo "<form method='post' action='?page=$CURRENT_PAGE&query=" . urlencode($QUERY) . "'>";
 echo "<div class='bulk-actions'>";
 echo "<h3>📝 Bulk Actions</h3>";
 echo "<p>Select users below and click this button to add them all to <strong>" . htmlspecialchars($listName) . "</strong>:</p>";
@@ -488,7 +603,7 @@ echo "</form>";
 
 // Pagination
 $hasNextPage = !empty($results['cursor']);
-echo generate_pagination($CURRENT_PAGE, $hasNextPage);
+echo generate_pagination($CURRENT_PAGE, $hasNextPage, 7, $QUERY);
 
 // Statistics
 $totalFiltered = count($filtered);
@@ -513,5 +628,6 @@ if ($hasNextPage) {
 }
 echo "</div>";
 
+echo "</div>"; // Close main-content
 echo "<hr><p><small>List URI: $LIST_URI</small></p>";
 echo "</body></html>";

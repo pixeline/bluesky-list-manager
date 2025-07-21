@@ -350,146 +350,147 @@ $results = ['actors' => []];
 $actors = [];
 $filtered = [];
 
-// Display results
-echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Bluesky Profile Catcher - Find & Curate</title>";
-echo "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
-echo "<script src='https://cdn.tailwindcss.com'></script>";
-echo "<script src='https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js'></script>";
-echo "<link rel='stylesheet' href='styles.css'>";
 ?>
-<link rel="icon" type="image/png" href="./static/favicon-96x96.png" sizes="96x96" />
-<link rel="icon" type="image/svg+xml" href="./static/favicon.svg" />
-<link rel="shortcut icon" href="./static/favicon.ico" />
-<link rel="apple-touch-icon" sizes="180x180" href="./static/apple-touch-icon.png" />
-<meta name="apple-mobile-web-app-title" content="Profile Catcher" />
-<link rel="manifest" href="./static/site.webmanifest" />
-<!-- HTML Meta Tags -->
-<title>Bluesky Profile Catcher - Find & Curate</title>
-<meta name="description" content="Find and curate profiles to add to your Bluesky lists.">
+<!DOCTYPE html>
+<html>
 
-<!-- Facebook Meta Tags -->
-<meta property="og:url" content="https://pixeline.be/bluesky-profile-catcher/">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Bluesky Profile Catcher - Find & Curate">
-<meta property="og:description" content="Find and curate profiles to add to your Bluesky lists.">
-<meta property="og:image" content="./static/bluesky-profile-catcher-og.jpg">
+<head>
+    <meta charset="UTF-8">
+    <title>Bluesky Profile Catcher - Find & Curate</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 
-<!-- Twitter Meta Tags -->
-<meta name="twitter:card" content="summary_large_image">
-<meta property="twitter:domain" content="pixeline.be">
-<meta property="twitter:url" content="https://pixeline.be/bluesky-profile-catcher/">
-<meta name="twitter:title" content="Bluesky Profile Catcher - Find & Curate">
-<meta name="twitter:description" content="Find and curate profiles to add to your Bluesky lists.">
-<meta name="twitter:image" content="https://opengraph.b-cdn.net/production/images/574092aa-c521-420d-ab54-58148d3f2e3c.jpg?token=Rk9GLvjbvp8fX6PZrzNRz5K1usZpaZvoJMnmqnHt3gc&height=388&width=558&expires=33289055100">
+    <link rel="icon" type="image/png" href="./static/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="./static/favicon.svg" />
+    <link rel="shortcut icon" href="./static/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./static/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Profile Catcher" />
+    <link rel="manifest" href="./static/site.webmanifest" />
 
-<!-- Meta Tags Generated via https://www.opengraph.xyz -->
-<?php
-echo "</head><body>";
+    <!-- HTML Meta Tags -->
+    <title>Bluesky Profile Catcher - Find & Curate</title>
+    <meta name="description" content="Find and curate profiles to add to your Bluesky lists.">
 
-// Top bar with authentication and search
-echo "<div class='bg-white border-b border-gray-200 sticky top-0 z-50'>";
-echo "<div class='max-w-6xl mx-auto px-6 py-4'>";
-echo "<div class='flex items-center justify-between mb-4'>";
-echo "<div>";
-echo "<h1 class='text-2xl font-bold m-0 text-slate-800'>🦋 Bluesky Profile Catcher</h1>";
-echo "<p class='text-sm text-slate-600 m-0 mt-1'>Find and curate profiles to add to your Bluesky lists</p>";
-echo "</div>";
-echo "<div id='auth-status'>";
-echo "<button id='signin-btn' class='bg-slate-800 hover:bg-slate-700 text-white border-0 px-5 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-200'>🔐 Sign in with Bluesky</button>";
-echo "<div id='user-info' class='hidden'>";
-echo "<span id='user-handle' class='text-sm text-slate-700'></span><br>";
-echo "<button id='signout-btn' class='bg-gray-100 hover:bg-gray-200 text-slate-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors duration-200 mt-1 font-medium'>Sign out</button>";
-echo "</div>";
-echo "</div>";
-echo "</div>";
+    <!-- Facebook Meta Tags -->
+    <meta property="og:url" content="https://pixeline.be/bluesky-profile-catcher/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Bluesky Profile Catcher - Find & Curate">
+    <meta property="og:description" content="Find and curate profiles to add to your Bluesky lists.">
+    <meta property="og:image" content="./static/bluesky-profile-catcher-og.jpg">
 
-// Search form (shown when logged in)
-echo "<div id='search-form-container' class='hidden'>";
-echo "<form class='flex gap-4 items-center flex-wrap'>";
-echo "<label class='text-sm font-medium text-slate-700 whitespace-nowrap'>Search profiles with:</label>";
-echo "<input type='text' name='query' value='" . htmlspecialchars($QUERY) . "' placeholder='e.g., belge, artist, developer...' class='flex-1 min-w-48 px-4 py-2.5 border border-gray-300 rounded-lg text-base outline-none shadow-sm text-slate-800 placeholder-gray-400 focus:border-slate-500 focus:ring-1 focus:ring-slate-500' required>";
-echo "<label class='text-sm font-medium text-slate-700 whitespace-nowrap'>to add to list:</label>";
-echo "<select id='list-dropdown' class='bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-48 text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500'>";
-echo "<option value=''>Select a list...</option>";
-echo "</select>";
-echo "<button type='submit' class='bg-slate-800 hover:bg-slate-700 text-white border-0 px-6 py-2.5 rounded-lg text-base font-medium cursor-pointer transition-colors duration-200 whitespace-nowrap flex items-center gap-2'>";
-echo "<span class='loading-spinner hidden' id='search-spinner'></span>";
-echo "🔍 Search";
-echo "</button>";
-echo "</form>";
-echo "</div>";
-echo "</div>";
-echo "</div>";
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:domain" content="pixeline.be">
+    <meta property="twitter:url" content="https://pixeline.be/bluesky-profile-catcher/">
+    <meta name="twitter:title" content="Bluesky Profile Catcher - Find & Curate">
+    <meta name="twitter:description" content="Find and curate profiles to add to your Bluesky lists.">
+    <meta name="twitter:image" content="https://opengraph.b-cdn.net/production/images/574092aa-c521-420d-ab54-58148d3f2e3c.jpg?token=Rk9GLvjbvp8fX6PZrzNRz5K1usZpaZvoJMnmqnHt3gc&height=388&width=558&expires=33289055100">
 
-echo "<div class='max-w-6xl mx-auto p-6'>";
+    <!-- Meta Tags Generated via https://www.opengraph.xyz -->
+</head>
 
-// Authentication instructions
-echo "<div id='auth-instructions' class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>🔐 Authentication Required</h3>";
-echo "<p class='mb-3 text-slate-700'>To search for profiles and add them to your lists, please sign in with your Bluesky account.</p>";
-echo "<p class='text-sm text-slate-600'><strong>Your credentials are stored locally and never sent to our servers.</strong></p>";
-echo "</div>";
+<body>
+    <!-- Top bar with authentication and search -->
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h1 class="text-2xl font-bold m-0 text-slate-800">🦋 Bluesky Profile Catcher</h1>
+                    <p class="text-sm text-slate-600 m-0 mt-1">Find and curate profiles to add to your Bluesky lists</p>
+                </div>
+                <div id="auth-status">
+                    <button id="signin-btn" class="bg-slate-800 hover:bg-slate-700 text-white border-0 px-5 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-200">🔐 Sign in with Bluesky</button>
+                    <div id="user-info" class="hidden">
+                        <span id="user-handle" class="text-sm text-slate-700"></span><br>
+                        <button id="signout-btn" class="bg-gray-100 hover:bg-gray-200 text-slate-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors duration-200 mt-1 font-medium">Sign out</button>
+                    </div>
+                </div>
+            </div>
 
-// Tab interface (shown when logged in)
-echo "<div id='tab-interface' class='hidden'>";
-echo "<div class='border-b border-gray-200 mb-6'>";
-echo "<nav class='sticky top-60 flex space-x-8'>";
-echo "<button id='found-tab' class='tab-button active py-3 px-1 border-b-2 border-slate-800 text-slate-800 font-medium'>Found Profiles</button>";
-echo "<button id='list-tab' class='tab-button py-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium'>0 Members in list: Select a list</button>";
-echo "</nav>";
-echo "</div>";
+            <!-- Search form (shown when logged in) -->
+            <div id="search-form-container" class="hidden">
+                <form class="flex gap-4 items-center flex-wrap">
+                    <label class="text-sm font-medium text-slate-700 whitespace-nowrap">Search profiles with:</label>
+                    <input type="text" name="query" value="<?= htmlspecialchars($QUERY) ?>" placeholder="e.g., belge, artist, developer..." class="flex-1 min-w-48 px-4 py-2.5 border border-gray-300 rounded-lg text-base outline-none shadow-sm text-slate-800 placeholder-gray-400 focus:border-slate-500 focus:ring-1 focus:ring-slate-500" required>
+                    <label class="text-sm font-medium text-slate-700 whitespace-nowrap">to add to list:</label>
+                    <select id="list-dropdown" class="bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-48 text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500">
+                        <option value="">Select a list...</option>
+                    </select>
+                    <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white border-0 px-6 py-2.5 rounded-lg text-base font-medium cursor-pointer transition-colors duration-200 whitespace-nowrap flex items-center gap-2">
+                        <span class="loading-spinner hidden" id="search-spinner"></span>
+                        🔍 Search
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-// Found profiles tab content
-echo "<div id='found-tab-content' class='tab-content'>";
-echo "<div class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>📋 Found Profiles</h3>";
-echo "<p id='found-description' class='text-sm text-slate-600'>Profiles matching your search that are not yet in your selected list.</p>";
-echo "</div>";
+    <div class="max-w-6xl mx-auto p-6">
+        <div id="statistics"></div>
 
-echo "<div id='messages'></div>";
+        <!-- Authentication instructions -->
+        <div id="auth-instructions" class="bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200">
+            <h3 class="text-lg font-semibold mb-3 text-slate-800">🔐 Authentication Required</h3>
+            <p class="mb-3 text-slate-700">To search for profiles and add them to your lists, please sign in with your Bluesky account.</p>
+            <p class="text-sm text-slate-600"><strong>Your credentials are stored locally and never sent to our servers.</strong></p>
+        </div>
 
-echo "<div class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>📝 Bulk Actions</h3>";
-echo "<p class='mb-4 text-slate-700'>Select profiles below and add them to your list:</p>";
-echo "</div>";
+        <!-- Tab interface (shown when logged in) -->
+        <div id="tab-interface" class="hidden">
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="sticky top-60 flex space-x-8">
+                    <button id="found-tab" class="tab-button active py-3 px-1 border-b-2 border-slate-800 text-slate-800 font-medium">Found Profiles</button>
+                    <button id="list-tab" class="tab-button py-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium">0 Members in list: Select a list</button>
+                </nav>
+            </div>
 
-// Sticky action bar
-echo "<div class='sticky top-40 z-40 bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-6'>";
-echo "<div class='flex items-center justify-between'>";
-echo "<div class='flex items-center gap-3'>";
-echo "<button id='add-selected-btn' onclick='addSelectedToList()' disabled class='bg-slate-800 hover:bg-slate-700 text-white border-0 px-4 py-2.5 rounded-lg cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium text-sm'>Add Selected to List</button>";
-echo "</div>";
-echo "<div class='text-sm text-slate-600'><span id='selected-count'>0</span> profiles selected</div>";
-echo "</div>";
-echo "</div>";
+            <!-- Found profiles tab content -->
+            <div id="found-tab-content" class="tab-content">
+                <div class="bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-3 text-slate-800">📋 Found Profiles</h3>
+                    <p id="found-description" class="text-sm text-slate-600">Profiles matching your search that are not yet in your selected list.</p>
+                </div>
 
-echo "<div id='profiles-container'>";
-echo "<p class='text-slate-500'>Please sign in and select a list to start searching for profiles.</p>";
-echo "</div>";
-echo "</div>";
+                <div id="messages"></div>
 
-// List members tab content
-echo "<div id='list-tab-content' class='tab-content hidden'>";
-echo "<div class='bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200'>";
-echo "<h3 class='text-lg font-semibold mb-3 text-slate-800'>📋 List Members</h3>";
-echo "<p id='list-description' class='text-sm text-slate-600'></p>";
-echo "</div>";
-echo "<div id='list-members-container'>";
-echo "<p class='text-slate-500'>Loading list members...</p>";
-echo "</div>";
-echo "</div>";
+                <!-- Sticky action bar -->
+                <div class="sticky top-40 z-40 bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <button id="add-selected-btn" onclick="addSelectedToList()" disabled class="bg-slate-800 hover:bg-slate-700 text-white border-0 px-4 py-2.5 rounded-lg cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium text-sm">Add Selected to List</button>
+                        </div>
+                        <div class="text-sm text-slate-600"><span id="selected-count">0</span> profiles selected</div>
+                    </div>
+                </div>
 
-echo "</div>"; // Close tab-interface
+                <div id="profiles-container">
+                    <p class="text-slate-500">Please sign in and select a list to start searching for profiles.</p>
+                </div>
+            </div>
 
-// Statistics and pagination
-echo "<div id='statistics'></div>";
-echo "<div id='pagination'></div>";
+            <!-- List members tab content -->
+            <div id="list-tab-content" class="tab-content hidden">
+                <div class="bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-3 text-slate-800">📋 List Members</h3>
+                    <p id="list-description" class="text-sm text-slate-600"></p>
+                </div>
+                <div id="list-members-container">
+                    <p class="text-slate-500">Loading list members...</p>
+                </div>
+            </div>
+        </div>
 
-echo "</div>"; // Close main-content
-echo "<hr class='my-6 border-gray-200'>";
-echo "<p class='text-xs text-slate-500 text-center'>List URI: <span id='list-uri'>Not selected</span></p>";
+        <!-- Statistics and pagination -->
+        <div id="pagination"></div>
+    </div>
 
-// Include the external JavaScript file
-echo "<script src='app.js'></script>";
+    <hr class="my-6 border-gray-200">
+    <p class="text-xs text-slate-500 text-center">List URI: <span id="list-uri">Not selected</span></p>
 
-echo "</body></html>";
+    <!-- Include the external JavaScript file -->
+    <script src="app.js"></script>
+</body>
+
+</html>

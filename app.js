@@ -49,9 +49,11 @@ function loadStoredSession() {
     if (storedList) {
         try {
             currentList = JSON.parse(storedList);
+            console.log('Restored selected list:', currentList.name);
         } catch (e) {
             console.error('Error loading stored list:', e);
             localStorage.removeItem(STORAGE_KEYS.SELECTED_LIST);
+            currentList = null;
         }
     }
 }
@@ -194,7 +196,7 @@ async function loadUserLists() {
 
         updateListDropdown();
 
-        // If we have a stored selected list, restore it
+        // If we have a stored selected list, restore it and load members
         if (currentList) {
             const dropdown = document.getElementById('list-dropdown');
             dropdown.value = currentList.uri;
@@ -229,11 +231,23 @@ function updateListDropdown() {
         dropdown.appendChild(option);
     });
 
-    // Load previously selected list
-    const storedList = localStorage.getItem(STORAGE_KEYS.SELECTED_LIST);
-    if (storedList) {
-        dropdown.value = storedList;
-        onListSelected();
+    // Load previously selected list (only if not already loaded)
+    if (!currentList) {
+        const storedList = localStorage.getItem(STORAGE_KEYS.SELECTED_LIST);
+        if (storedList) {
+            try {
+                const parsedList = JSON.parse(storedList);
+                dropdown.value = parsedList.uri;
+                currentList = parsedList;
+                console.log('Restored list selection from localStorage:', parsedList.name);
+            } catch (e) {
+                console.error('Error parsing stored list:', e);
+                localStorage.removeItem(STORAGE_KEYS.SELECTED_LIST);
+            }
+        }
+    } else {
+        // If currentList is already set, just update the dropdown
+        dropdown.value = currentList.uri;
     }
 }
 
@@ -242,8 +256,11 @@ async function onListSelected() {
     const dropdown = document.getElementById('list-dropdown');
     const selectedValue = dropdown.value;
 
+    console.log('List selection changed to:', selectedValue);
+
     if (!selectedValue) {
         currentList = null;
+        localStorage.removeItem(STORAGE_KEYS.SELECTED_LIST);
         updateUI();
         return;
     }
@@ -256,6 +273,7 @@ async function onListSelected() {
     }
 
     currentList = selectedList;
+    console.log('Selected list:', selectedList.name);
 
     // Store selected list
     localStorage.setItem(STORAGE_KEYS.SELECTED_LIST, JSON.stringify(selectedList));
@@ -874,12 +892,12 @@ function updateStatistics(filtered) {
     html += '</div>';
 
     // Add search progress information
-    if (hasNextPage) {
-        html += '<div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">';
-        html += '<p class="text-sm text-blue-800 font-medium">🔄 Search in progress...</p>';
-        html += '<p class="text-xs text-blue-600 mt-1">Scroll down or click "Load More" to find additional profiles</p>';
-        html += '</div>';
-    }
+    // if (hasNextPage) {
+    //     html += '<div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">';
+    //     html += '<p class="text-sm text-blue-800 font-medium">🔄 Search in progress...</p>';
+    //     html += '<p class="text-xs text-blue-600 mt-1">Scroll down or click "Load More" to find additional profiles</p>';
+    //     html += '</div>';
+    // }
 
     // Add explanation if no new candidates found
     if (newCandidates === 0 && totalFound > 0) {

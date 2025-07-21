@@ -354,7 +354,36 @@ $filtered = [];
 echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Bluesky Profile Catcher - Find & Curate</title>";
 echo "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
 echo "<script src='https://cdn.tailwindcss.com'></script>";
+echo "<script src='https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js'></script>";
 echo "<link rel='stylesheet' href='styles.css'>";
+?>
+<link rel="icon" type="image/png" href="./static/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="./static/favicon.svg" />
+<link rel="shortcut icon" href="./static/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="./static/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-title" content="Profile Catcher" />
+<link rel="manifest" href="./static/site.webmanifest" />
+<!-- HTML Meta Tags -->
+<title>Bluesky Profile Catcher - Find & Curate</title>
+<meta name="description" content="Find and curate profiles to add to your Bluesky lists.">
+
+<!-- Facebook Meta Tags -->
+<meta property="og:url" content="https://pixeline.be/bluesky-profile-catcher/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Bluesky Profile Catcher - Find & Curate">
+<meta property="og:description" content="Find and curate profiles to add to your Bluesky lists.">
+<meta property="og:image" content="./static/bluesky-profile-catcher-og.jpg">
+
+<!-- Twitter Meta Tags -->
+<meta name="twitter:card" content="summary_large_image">
+<meta property="twitter:domain" content="pixeline.be">
+<meta property="twitter:url" content="https://pixeline.be/bluesky-profile-catcher/">
+<meta name="twitter:title" content="Bluesky Profile Catcher - Find & Curate">
+<meta name="twitter:description" content="Find and curate profiles to add to your Bluesky lists.">
+<meta name="twitter:image" content="https://opengraph.b-cdn.net/production/images/574092aa-c521-420d-ab54-58148d3f2e3c.jpg?token=Rk9GLvjbvp8fX6PZrzNRz5K1usZpaZvoJMnmqnHt3gc&height=388&width=558&expires=33289055100">
+
+<!-- Meta Tags Generated via https://www.opengraph.xyz -->
+<?php
 echo "</head><body>";
 
 // Top bar with authentication and search
@@ -404,7 +433,7 @@ echo "</div>";
 // Tab interface (shown when logged in)
 echo "<div id='tab-interface' class='hidden'>";
 echo "<div class='border-b border-gray-200 mb-6'>";
-echo "<nav class='flex space-x-8'>";
+echo "<nav class='sticky top-60 flex space-x-8'>";
 echo "<button id='found-tab' class='tab-button active py-3 px-1 border-b-2 border-slate-800 text-slate-800 font-medium'>Found Profiles</button>";
 echo "<button id='list-tab' class='tab-button py-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium'>0 Members in list: Select a list</button>";
 echo "</nav>";

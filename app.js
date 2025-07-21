@@ -906,53 +906,136 @@ async function addSelectedToList() {
         return;
     }
 
+    // Show loading state
+    const addBtn = document.getElementById('add-selected-btn');
+    const originalText = addBtn.innerHTML;
+    addBtn.disabled = true;
+    addBtn.innerHTML = '<span class="loading-spinner mr-2"></span>Adding to list...';
+
     let successCount = 0;
     let errorCount = 0;
 
-    for (const did of selectedDids) {
-        try {
-            const response = await fetch(BLUESKY_API + '/com.atproto.repo.createRecord', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + currentSession.accessJwt
-                },
-                body: JSON.stringify({
-                    repo: currentSession.did,
-                    collection: 'app.bsky.graph.listitem',
-                    record: {
-                        '$type': 'app.bsky.graph.listitem',
-                        subject: did,
-                        list: currentList.uri,
-                        createdAt: new Date().toISOString()
-                    }
-                })
-            });
+    try {
+        for (const did of selectedDids) {
+            try {
+                const response = await fetch(BLUESKY_API + '/com.atproto.repo.createRecord', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + currentSession.accessJwt
+                    },
+                    body: JSON.stringify({
+                        repo: currentSession.did,
+                        collection: 'app.bsky.graph.listitem',
+                        record: {
+                            '$type': 'app.bsky.graph.listitem',
+                            subject: did,
+                            list: currentList.uri,
+                            createdAt: new Date().toISOString()
+                        }
+                    })
+                });
 
-            if (response.ok) {
-                successCount++;
-                // Add to local members list
-                if (!currentList.members) currentList.members = [];
-                currentList.members.push(did);
-            } else {
+                if (response.ok) {
+                    successCount++;
+                    // Add to local members list
+                    if (!currentList.members) currentList.members = [];
+                    currentList.members.push(did);
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
                 errorCount++;
+                console.error('Error adding to list:', error);
             }
-        } catch (error) {
-            errorCount++;
-            console.error('Error adding to list:', error);
         }
-    }
 
-    // Update UI
-    updateTabDescriptions();
-    displaySearchResults();
+        // Update UI
+        updateTabDescriptions();
+        displaySearchResults();
 
-    if (successCount > 0) {
-        showMessage('✅ Successfully added ' + successCount + ' profile(s) to your list', 'success');
+        // Show success message and trigger confetti
+        if (successCount > 0) {
+            showMessage('✅ Successfully added ' + successCount + ' profile(s) to your list', 'success');
+
+            // Trigger confetti celebration
+            triggerConfetti(successCount);
+
+            // Reset button immediately after success
+            addBtn.disabled = false;
+            addBtn.innerHTML = originalText;
+
+            // Update selected count to 0 since profiles were added
+            updateSelectedCount();
+        }
+
+        if (errorCount > 0) {
+            showMessage('❌ Failed to add ' + errorCount + ' profile(s)', 'error');
+            // Reset button on error too
+            addBtn.disabled = false;
+            addBtn.innerHTML = originalText;
+        }
+
+    } catch (error) {
+        console.error('Error in addSelectedToList:', error);
+        showMessage('❌ An error occurred while adding profiles', 'error');
+        // Reset button on any error
+        addBtn.disabled = false;
+        addBtn.innerHTML = originalText;
     }
-    if (errorCount > 0) {
-        showMessage('❌ Failed to add ' + errorCount + ' profile(s)', 'error');
-    }
+}
+
+// Trigger confetti celebration
+function triggerConfetti(profileCount) {
+    // Configure confetti based on number of profiles added
+    const intensity = Math.min(profileCount * 0.3, 1); // Scale intensity with profile count
+
+    const confettiConfig = {
+        particleCount: Math.floor(100 * intensity),
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#475569', '#64748b', '#94a3b8', '#cbd5e1', '#e2e8f0'], // Slate color palette
+        shapes: ['circle', 'square'],
+        gravity: 0.8,
+        ticks: 200,
+        startVelocity: 30,
+        decay: 0.95
+    };
+
+    // Fire confetti
+    confetti(confettiConfig);
+
+    // Add a second burst for more celebration
+    setTimeout(() => {
+        confetti({
+            ...confettiConfig,
+            particleCount: Math.floor(50 * intensity),
+            origin: { x: 0.2, y: 0.6 }
+        });
+    }, 150);
+
+    setTimeout(() => {
+        confetti({
+            ...confettiConfig,
+            particleCount: Math.floor(50 * intensity),
+            origin: { x: 0.8, y: 0.6 }
+        });
+    }, 300);
+
+    // Add a final burst from the top
+    setTimeout(() => {
+        confetti({
+            particleCount: Math.floor(30 * intensity),
+            spread: 90,
+            origin: { y: 0.1 },
+            colors: ['#475569', '#64748b', '#94a3b8'],
+            shapes: ['circle'],
+            gravity: 1,
+            ticks: 150,
+            startVelocity: 45,
+            decay: 0.9
+        });
+    }, 500);
 }
 
 // Reset pagination

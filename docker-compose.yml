@@ -10,10 +10,7 @@ services:
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
     volumes:
-      # Mount source code for live development
       - .:/var/www/html
-      # Optional: Mount a volume for persistent data if needed
-      - ./data:/var/www/html/data
     networks:
       - bluesky-network
     healthcheck:

@@ -1,4 +1,4 @@
-# 🦋 Bluesky Profile Catcher - PHP Edition
+# 🦋 Bluesky Profile Catcher
 
 A PHP web application for discovering and curating Bluesky profiles. Search for profiles matching specific terms and add them to your Bluesky lists with ease.
 
@@ -7,7 +7,6 @@ A PHP web application for discovering and curating Bluesky profiles. Search for 
 - **Smart Search**: Find profiles containing specific terms in their names or descriptions
 - **List Management**: Add selected profiles to your Bluesky lists in bulk
 - **Duplicate Prevention**: Automatically detects and prevents adding profiles already in your list
-- **Pagination**: Browse through search results efficiently
 - **Visual Feedback**: Clear indicators showing which profiles are already in your list
 - **Docker Support**: Easy deployment with Docker Compose
 
@@ -26,9 +25,6 @@ Edit `.env` with your Bluesky credentials:
 ```env
 BLUESKY_HANDLE=your_handle.bsky.social
 BLUESKY_APP_PASSWORD=your_app_password_here
-QUERY=belge
-PAGE_SIZE=25
-LIST_RKEY=your_list_rkey_here
 ```
 
 **Finding your LIST_RKEY:**
@@ -79,16 +75,11 @@ php -S localhost:8000
 
 - `BLUESKY_HANDLE`: Your Bluesky handle (e.g., username.bsky.social)
 - `BLUESKY_APP_PASSWORD`: Generate this in Bluesky Settings > App Passwords
-- `QUERY`: Default search term (can be overridden in the interface)
-- `PAGE_SIZE`: Number of results per page (default: 25)
-- `LIST_RKEY`: The identifier of your target Bluesky list
 
 ## 🐳 Docker Details
 
 - **Image**: PHP 8.2 with Apache
 - **Port**: 8080 (maps to container port 80)
-- **Volumes**: Source code mounted for live development
-- **Health Check**: Automatic container health monitoring
 
 ## 🤝 Contributing
 

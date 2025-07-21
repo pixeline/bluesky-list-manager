@@ -4,6 +4,7 @@
   import AuthInstructions from './components/AuthInstructions.svelte';
   import ListSelector from './components/ListSelector.svelte';
   import ListManager from './components/ListManager.svelte';
+  import LoadingOverlay from './components/LoadingOverlay.svelte';
   import { blueskyStore } from './stores/blueskyStore.js';
   import { listStore } from './stores/listStore.js';
 
@@ -19,14 +20,13 @@
 
   // Watch for authentication changes
   $: if ($blueskyStore.session) {
-    currentView = 'list-selector';
+    if ($listStore.selectedList) {
+      currentView = 'manager';
+    } else {
+      currentView = 'list-selector';
+    }
   } else {
     currentView = 'auth';
-  }
-
-  // Watch for list selection
-  $: if ($listStore.selectedList) {
-    currentView = 'manager';
   }
 </script>
 
@@ -44,6 +44,12 @@
       <ListManager />
     {/if}
   </div>
+
+  <!-- Loading Overlay -->
+  <LoadingOverlay
+    isLoading={$listStore.isLoadingList}
+    message="Loading list data and members..."
+  />
 </main>
 
 <style>

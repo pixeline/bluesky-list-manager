@@ -3,6 +3,7 @@
   import { listStore } from '../stores/listStore.js';
   import { blueskyApi } from '../services/blueskyApi.js';
   import BlueskyUserProfile from './BlueskyUserProfile.svelte';
+  import confetti from 'canvas-confetti';
 
   let searchQuery = '';
   let searchResults = [];
@@ -11,6 +12,7 @@
   let selectedProfiles = new Set();
   let currentCursor = null;
   let hasNextPage = false;
+  let addingProfiles = new Set();
 
   async function handleSearch() {
     if (!searchQuery.trim() || !$blueskyStore.session) return;
@@ -71,6 +73,82 @@
     }
     return 'New candidate';
   }
+
+  async function handleAddToList(profile) {
+    if (!$blueskyStore.session || !$listStore.selectedList || addingProfiles.has(profile.did)) return;
+
+    addingProfiles.add(profile.did);
+    addingProfiles = addingProfiles; // Trigger reactivity
+
+    try {
+      await blueskyApi.addToList($blueskyStore.session, profile.did, $listStore.selectedList.uri);
+      // Refresh list members to update the status
+      const memberDids = await blueskyApi.getListMembers($blueskyStore.session, $listStore.selectedList.uri);
+      listStore.setListMembers(memberDids);
+
+      // Trigger refresh of list members display
+      listStore.refreshListMembers();
+
+      // Trigger fireworks effect with blue butterfly emoji
+      triggerButterflyConfetti();
+    } catch (err) {
+      console.error('Failed to add profile to list:', err);
+      // You could show an error message here if needed
+    } finally {
+      addingProfiles.delete(profile.did);
+      addingProfiles = addingProfiles; // Trigger reactivity
+    }
+  }
+
+    function triggerButterflyConfetti() {
+    // Create a beautiful butterfly-themed confetti effect
+    confetti({
+      particleCount: 50,
+      spread: 80,
+      origin: { y: 0.6 },
+      colors: ['#3b82f6', '#1d4ed8', '#1e40af', '#60a5fa', '#93c5fd'], // Blue shades
+      scalar: 1.5,
+      ticks: 300,
+      gravity: 0.6,
+      drift: 0.3,
+      startVelocity: 35,
+      decay: 0.92,
+      shapes: ['circle', 'square'],
+      zIndex: 9999
+    });
+
+    // Add a second burst for more dramatic effect
+    setTimeout(() => {
+      confetti({
+        particleCount: 30,
+        spread: 60,
+        origin: { y: 0.7, x: 0.3 },
+        colors: ['#3b82f6', '#1d4ed8', '#60a5fa'],
+        scalar: 1.2,
+        ticks: 200,
+        gravity: 0.7,
+        drift: -0.2,
+        startVelocity: 25,
+        decay: 0.94
+      });
+    }, 150);
+
+    // Add a third burst from the other side
+    setTimeout(() => {
+      confetti({
+        particleCount: 30,
+        spread: 60,
+        origin: { y: 0.7, x: 0.7 },
+        colors: ['#1e40af', '#3b82f6', '#93c5fd'],
+        scalar: 1.2,
+        ticks: 200,
+        gravity: 0.7,
+        drift: 0.2,
+        startVelocity: 25,
+        decay: 0.94
+      });
+    }, 300);
+  }
 </script>
 
 <div class="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -81,7 +159,7 @@
     </p>
   </div>
 
-  <div class="p-6">
+  <div id="profile-search-container" class="p-6">
     <!-- Search Form -->
     <form on:submit|preventDefault={handleSearch} class="mb-6">
       <div class="flex gap-4 items-center flex-wrap">
@@ -125,42 +203,49 @@
             isSelected={selectedProfiles.has(profile.did)}
             onSelect={handleProfileSelect}
             statusTag={getStatusTag(profile)}
+            clickable={true}
+            onAddToList={handleAddToList}
+            isAddingToList={addingProfiles.has(profile.did)}
           />
         {/each}
-      </div>
 
-      <!-- Load More Button -->
-      {#if hasNextPage}
-        <div class="text-center mt-6">
-          <button
-            on:click={loadMore}
-            disabled={isLoading}
-            class="bg-gray-100 hover:bg-gray-200 text-slate-700 border border-gray-300 px-6 py-2.5 rounded-lg text-base font-medium cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {#if isLoading}
-              <span class="loading-spinner mr-2"></span>
-              Loading...
-            {:else}
-              Load More Results
-            {/if}
-          </button>
-        </div>
-      {/if}
+        <!-- Load More Button -->
+        {#if hasNextPage}
+          <div class="text-center pt-4 border-t border-gray-200">
+            <button
+              on:click={loadMore}
+              disabled={isLoading}
+              class="bg-gray-100 hover:bg-gray-200 text-slate-700 border border-gray-300 px-6 py-2.5 rounded-lg text-base font-medium cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {#if isLoading}
+                <span class="loading-spinner mr-2"></span>
+                Loading...
+              {:else}
+                Load More Results
+              {/if}
+            </button>
+          </div>
+        {/if}
+      </div>
     {:else if searchQuery && !isLoading}
-      <div class="text-center py-12">
-        <div class="text-4xl mb-4">🔍</div>
-        <h3 class="text-lg font-semibold text-slate-800 mb-2">No Results Found</h3>
-        <p class="text-slate-600">
-          Try different keywords or check your spelling.
-        </p>
+      <div class="text-center py-8">
+        <div>
+          <div class="text-4xl mb-4">🔍</div>
+          <h3 class="text-lg font-semibold text-slate-800 mb-2">No Results Found</h3>
+          <p class="text-slate-600">
+            Try different keywords or check your spelling.
+          </p>
+        </div>
       </div>
     {:else if !searchQuery}
-      <div class="text-center py-12">
-        <div class="text-4xl mb-4">🔍</div>
-        <h3 class="text-lg font-semibold text-slate-800 mb-2">Ready to Search</h3>
-        <p class="text-slate-600">
-          Enter keywords above to find profiles to add to your list.
-        </p>
+      <div class="text-center py-8">
+        <div>
+          <div class="text-4xl mb-4">🔍</div>
+          <h3 class="text-lg font-semibold text-slate-800 mb-2">Ready to Search</h3>
+          <p class="text-slate-600">
+            Enter keywords above to find profiles to add to your list.
+          </p>
+        </div>
       </div>
     {/if}
   </div>

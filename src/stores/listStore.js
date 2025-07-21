@@ -10,6 +10,7 @@ function createListStore() {
     selectedList: null,
     userLists: [],
     listMembers: [],
+    listMemberProfiles: [],
     isLoading: false,
     error: null
   });
@@ -22,7 +23,10 @@ function createListStore() {
       } else {
         localStorage.removeItem(STORAGE_KEYS.SELECTED_LIST);
       }
-      update(state => ({ ...state, selectedList: list }));
+      update(state => ({ ...state, selectedList: list, isLoadingList: false }));
+    },
+    setListLoading: (isLoading) => {
+      update(state => ({ ...state, isLoadingList: isLoading }));
     },
     setUserLists: (lists) => {
       localStorage.setItem(STORAGE_KEYS.LISTS, JSON.stringify(lists));
@@ -30,6 +34,12 @@ function createListStore() {
     },
     setListMembers: (members) => {
       update(state => ({ ...state, listMembers: members }));
+    },
+    setListMemberProfiles: (profiles) => {
+      update(state => ({ ...state, listMemberProfiles: profiles }));
+    },
+    refreshListMembers: () => {
+      update(state => ({ ...state, refreshTrigger: Date.now() }));
     },
     setLoading: (isLoading) => {
       update(state => ({ ...state, isLoading }));

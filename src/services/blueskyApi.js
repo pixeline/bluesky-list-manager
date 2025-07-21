@@ -1,14 +1,14 @@
-const BLUESKY_API = 'https://bsky.social/xrpc';
+const API_BASE = '/api';
 
 class BlueskyApi {
   async signIn(handle, password) {
-    const response = await fetch(`${BLUESKY_API}/com.atproto.server.createSession`, {
+    const response = await fetch(`${API_BASE}/auth.php`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        identifier: handle,
+        handle: handle,
         password: password
       })
     });
@@ -22,10 +22,14 @@ class BlueskyApi {
   }
 
   async getUserLists(session) {
-    const response = await fetch(`${BLUESKY_API}/com.atproto.repo.listRecords?repo=${session.did}&collection=app.bsky.graph.list&limit=100`, {
+    const response = await fetch(`${API_BASE}/lists.php`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.accessJwt}`
-      }
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session: session
+      })
     });
 
     if (!response.ok) {
@@ -37,14 +41,15 @@ class BlueskyApi {
   }
 
   async getListInfo(session, listUri) {
-    const listParts = listUri.split('/');
-    const listOwnerDid = listParts[2];
-    const listRkey = listParts[4];
-
-    const response = await fetch(`${BLUESKY_API}/com.atproto.repo.getRecord?repo=${listOwnerDid}&collection=app.bsky.graph.list&rkey=${listRkey}`, {
+    const response = await fetch(`${API_BASE}/list-info.php`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.accessJwt}`
-      }
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session: session,
+        listUri: listUri
+      })
     });
 
     if (!response.ok) {
@@ -56,94 +61,103 @@ class BlueskyApi {
   }
 
   async getListMembers(session, listUri) {
-    const listParts = listUri.split('/');
-    const listOwnerDid = listParts[2];
+    const response = await fetch(`${API_BASE}/list-members.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session: session,
+        listUri: listUri
+      })
+    });
 
-    const members = [];
-    let cursor = null;
+    if (!response.ok) {
+      throw new Error('Failed to fetch list members');
+    }
 
-    do {
-      let url = `${BLUESKY_API}/com.atproto.repo.listRecords?repo=${listOwnerDid}&collection=app.bsky.graph.listitem&limit=100`;
-      if (cursor) {
-        url += `&cursor=${cursor}`;
-      }
+    const data = await response.json();
+    return data.members || [];
+  }
 
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${session.accessJwt}`
-        }
-      });
+  async getProfiles(session, dids) {
+    if (!dids || dids.length === 0) return [];
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch list members');
-      }
+    const response = await fetch(`${API_BASE}/profiles.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session: session,
+        dids: dids
+      })
+    });
 
-      const data = await response.json();
+    if (!response.ok) {
+      throw new Error('Failed to fetch profiles');
+    }
 
-      if (data.records) {
-        for (const record of data.records) {
-          if (record.value.list === listUri) {
-            members.push(record.value.subject);
-          }
-        }
-      }
-
-      cursor = data.cursor;
-    } while (cursor);
-
-    return members;
+    const data = await response.json();
+    return data.profiles || [];
   }
 
   async searchProfiles(session, query, limit = 25, cursor = null) {
-    let url = `${BLUESKY_API}/app.bsky.actor.searchActors?term=${encodeURIComponent(query)}&limit=${limit}`;
-    if (cursor) {
-      url += `&cursor=${encodeURIComponent(cursor)}`;
-    }
-
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE}/search.php`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.accessJwt}`
-      }
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session: session,
+        query: query,
+        limit: limit,
+        cursor: cursor
+      })
     });
 
     if (!response.ok) {
       throw new Error('Failed to search profiles');
     }
 
-    return await response.json();
+    const data = await response.json();
+    return {
+      actors: data.actors || [],
+      cursor: data.cursor
+    };
   }
 
   async addToList(session, userDid, listUri) {
-    const record = {
-      '$type': 'app.bsky.graph.listitem',
-      'subject': userDid,
-      'list': listUri,
-      'createdAt': new Date().toISOString()
-    };
-
-    const response = await fetch(`${BLUESKY_API}/com.atproto.repo.createRecord`, {
+    const response = await fetch(`${API_BASE}/add-to-list.php`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.accessJwt}`
       },
       body: JSON.stringify({
-        repo: session.did,
-        collection: 'app.bsky.graph.listitem',
-        record: record
+        session: session,
+        userDid: userDid,
+        listUri: listUri
       })
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to add user to list');
+      throw new Error(error.message || 'Failed to add to list');
     }
 
     return await response.json();
   }
 
   async resolveHandle(handle) {
-    const response = await fetch(`${BLUESKY_API}/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+    const response = await fetch(`${API_BASE}/resolve-handle.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        handle: handle
+      })
+    });
 
     if (!response.ok) {
       throw new Error('Failed to resolve handle');

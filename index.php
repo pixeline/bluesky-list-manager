@@ -388,10 +388,12 @@ $filtered = [];
     <meta name="twitter:description" content="Find and curate profiles to add to your Bluesky lists.">
     <meta name="twitter:image" content="https://opengraph.b-cdn.net/production/images/574092aa-c521-420d-ab54-58148d3f2e3c.jpg?token=Rk9GLvjbvp8fX6PZrzNRz5K1usZpaZvoJMnmqnHt3gc&height=388&width=558&expires=33289055100">
 
-    <!-- Meta Tags Generated via https://www.opengraph.xyz -->
+    <script src="https://cdn.counter.dev/script.js" data-id="d4da7416-0a1c-481d-a49e-dab45f63aa2e" data-utcoffset="1"></script>
+
 </head>
 
 <body>
+
     <!-- Top bar with authentication and search -->
     <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-6 py-4">

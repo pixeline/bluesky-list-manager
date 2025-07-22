@@ -1,40 +1,16 @@
-# Git
+node_modules
+npm-debug.log
 .git
 .gitignore
-
-# Environment files
+README.md
 .env
-.env.local
-.env.*.local
-
-# IDE files
+.nyc_output
+coverage
+.DS_Store
+*.log
+dist
 .vscode
 .idea
 *.swp
 *.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# PHP dependencies (if using Composer)
-vendor
-
-# Logs
-*.log
-error_log
-access_log
-
-# Documentation
-README.md
-
-# Data directory
-data/
-
-# Node.js leftovers (to exclude if they exist)
-node_modules
-.svelte-kit
-build
-dist
-package*.json
-npm-debug.log*
+*~

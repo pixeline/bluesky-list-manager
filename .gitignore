@@ -29,3 +29,4 @@ access_log
 
 # Docker
 .dockerignore
+node_modules

@@ -7,7 +7,7 @@
 	import ProfileSearch from './ProfileSearch.svelte';
 	import ListStatistics from './ListStatistics.svelte';
 
-	let isLoadingMembers = true;
+	let isLoadingMembers = false;
 	let membersError = '';
 	let selectedProfiles = new Set();
 	let isAddingProfiles = false;
@@ -15,21 +15,39 @@
 	let currentMembersPage = 1;
 	const membersPerPage = 25;
 	let isLoadingMembersPage = false;
+	let isCurrentlyLoadingMembers = false; // Prevent multiple simultaneous loads
+	let totalPages = 0;
 
-	onMount(async () => {
-		await loadListMembers();
-	});
+	// Component will react to list changes automatically
 
 	// Watch for refresh triggers from other components
 	$: if ($listStore.refreshTrigger) {
 		loadListMembers();
 	}
 
-	async function loadListMembers() {
-		if (!$listStore.selectedList || !$blueskyStore.session) return;
+	// Debug: Watch for profile changes
+	$: console.log('Profile count changed:', $listStore.listMemberProfiles.length);
 
+	// Watch for changes in selected list
+	let lastLoadedListUri = null;
+	$: if (
+		$listStore.selectedList &&
+		$blueskyStore.session &&
+		!isCurrentlyLoadingMembers &&
+		lastLoadedListUri !== $listStore.selectedList.uri
+	) {
+		console.log('List changed, loading members for:', $listStore.selectedList.name);
+		lastLoadedListUri = $listStore.selectedList.uri;
+		loadListMembers();
+	}
+
+	async function loadListMembers() {
+		if (!$listStore.selectedList || !$blueskyStore.session || isCurrentlyLoadingMembers) return;
+
+		isCurrentlyLoadingMembers = true;
 		isLoadingMembers = true;
 		membersError = '';
+		currentMembersPage = 1; // Reset to first page
 
 		try {
 			const memberDids = await blueskyApi.getListMembers(
@@ -38,6 +56,10 @@
 			);
 			console.log('Raw member DIDs:', memberDids);
 			listStore.setListMembers(memberDids);
+
+			// Calculate total pages
+			totalPages = Math.ceil(memberDids.length / membersPerPage);
+			console.log('Total pages:', totalPages);
 
 			// Load first page of profiles
 			await loadMembersPage(1);
@@ -50,7 +72,15 @@
 			// Clear loading overlay even on error
 			listStore.setListLoading(false);
 		} finally {
+			console.log('Setting isLoadingMembers to false');
 			isLoadingMembers = false;
+			isCurrentlyLoadingMembers = false;
+			console.log(
+				'Final state - isLoadingMembers:',
+				isLoadingMembers,
+				'isCurrentlyLoadingMembers:',
+				isCurrentlyLoadingMembers
+			);
 		}
 	}
 
@@ -82,7 +112,9 @@
 				membersError = ''; // Clear any previous errors
 			}
 
+			console.log('Setting profiles in store:', profiles.length);
 			listStore.setListMemberProfiles(profiles);
+			console.log('Profiles set in store, current count:', $listStore.listMemberProfiles.length);
 		} catch (error) {
 			console.error('Error loading members page:', error);
 			membersError = error.message || 'Failed to load page';
@@ -223,6 +255,12 @@
 			</div>
 
 			<div class="p-6 flex flex-col flex-1">
+				<!-- Debug info -->
+				<div class="text-xs text-gray-500 mb-2">
+					Debug: isLoadingMembers={isLoadingMembers}, profiles={$listStore.listMemberProfiles
+						.length}, members={$listStore.listMembers.length}
+				</div>
+
 				{#if isLoadingMembers}
 					<div class="text-center py-12 flex-1 flex items-center justify-center">
 						<div>

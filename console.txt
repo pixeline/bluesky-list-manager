@@ -1,0 +1,23 @@
+(index):64 cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation
+(anonymous) @ (index):64
+(anonymous) @ (index):64
+client:495 [vite] connecting...
+client:618 [vite] connected.
+record-api.js:169 root
+content-script.js:194 Content Script re-injected or page loaded
+script.js:12 Fetch failed loading: GET "https://t.counter.dev/track?referrer=&screen=2560x1080&id=d4da7416-0a1c-481d-a49e-dab45f63aa2e&utcoffset=1".
+(anonymous) @ script.js:12
+setTimeout
+(anonymous) @ script.js:10
+(anonymous) @ script.js:31
+localhost/:1 [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) <input id=​"password" type=​"password" placeholder=​"Your app password" class=​"w-full px-3 py-2 border border-gray-300 rounded-lg focus:​outline-none focus:​ring-2 focus:​ring-blue-500 focus:​border-transparent s-vkKzuKzdPzps" required>​
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+ListManager.svelte:44 Raw member DIDs: (60) ['did:plc:hctajudph55ykkmvhm4knnyj', 'did:plc:y2mhuqlzq6o5edn2yulpsbee', 'did:plc:ffm3o4vz473f6q7idxz4pmz7', 'did:plc:itm6b6ikk3doajmp7vqo3o7y', 'did:plc:2xibtqlq4oplg5hkbqw56xgu', 'did:plc:3wuwsp5ioakcix2ppd6js53p', 'did:plc:yjsfytijkg7buvdkjrc2rydt', 'did:plc:fpqsj3rdp2ywlzda43czqo2n', 'did:plc:god7lmgkgqlybavtrf2clc2h', 'did:plc:pdfj2bwwtcism3cenqik7g43', 'did:plc:zha3q6pd5zhbr7dmgp25b3x5', 'did:plc:4dcp6k3kcop4jjjgssje5epl', 'did:plc:ympscj7qcsrcpj4qz35qhs3v', 'did:plc:pzgvqg4ihnaihkrpmxqz5pu6', 'did:plc:yctwuz4ztovjl67grd4adpbu', 'did:plc:zos5kmlm4vle7b4xntem6sat', 'did:plc:anvvmj5rdxhzo26gmhkgshnn', 'did:plc:mqptcphqrjhr5nziy33f3kco', 'did:plc:c577wa5hifxtmprlqc5mo5cb', 'did:plc:zivbusxwcsom5o6mf7kljzms', 'did:plc:qrt5rykojeg5sbsajbu4zdke', 'did:plc:dqgeb5s4oyrae77lmiz7xhcs', 'did:plc:uu5axsmbm2or2dngy4gwchec', 'did:plc:oqj65y3q564clf3qxgq4nbnh', 'did:plc:abkhhxmswjkp2e56gsnur57f', 'did:plc:3asu5u6wfnl2w6fur7ftzu4y', 'did:plc:umwuviestxxpx4z466n72tnq', 'did:plc:oisofpd7lj26yvgiivf3lxsi', 'did:plc:eidn2o5kwuaqcss7zo7ivye5', 'did:plc:eonmw4yebwrzdizbkjmk54a2', 'did:plc:bgiuklsedj6jytu5w5stv7cn', 'did:plc:enc6dma567k54pl37fk4qhry', 'did:plc:6rmgrvblxflqh34omwywu6ib', 'did:plc:x6afizv3k7ullibmufjupfem', 'did:plc:l4m7ynxc47wzkgvlyyunx5n2', 'did:plc:343p6xcgmvkpz5abgezlgyep', 'did:plc:xpchjovbk6sxl3bv74z7cs54', 'did:plc:4fjdt7mwwkyws4fzpqfnehvu', 'did:plc:eagnfcoqnbtzpkglrtej6ayg', 'did:plc:go53xbllmkjw3vp65vmrcjol', 'did:plc:kcvqkdpqfvvdxpsbcf6vbpgg', 'did:plc:hx35zjisxgynsrwdsrmj2egw', 'did:plc:wjrpkham2fhwlxkthcch2sc2', 'did:plc:pgjpl4opnmqxxpb74n4vuabv', 'did:plc:wovfeu2jgwq6bb2smkfz3vgu', 'did:plc:of4tidnqu5eobnxttvklk6dv', 'did:plc:fzznlzactdgvlnbbt5lj2dm6', 'did:plc:ft4xa6jghtvlzzx76omhul7i', 'did:plc:etdjdgnly5tz5l5xdd4jq76d', 'did:plc:r4p4qrbwfv7fbvpem5hjdmvl', 'did:plc:27amcn2237vo2ejswrn5buux', 'did:plc:xhhcrzsilpamjmz4dvrpt7df', 'did:plc:ondoryazrrccimbu7yd46fis', 'did:plc:rcifcjcsktn7y3hqpfn72jkv', 'did:plc:3bma776uzlskrurlthsqe6bh', 'did:plc:arjci2g6surkcucdpqxa5mjp', 'did:plc:rmbi5fz2tigqxidqyuncs5xe', 'did:plc:54psnzd24pxw6lij3pxthrpn', 'did:plc:yh22zowuadedswsugd7ndazh', 'did:plc:bjpczagdj45x4rrjshvjxcnc']
+ListManager.svelte:75 Loading page 1: DIDs 1-25
+ListManager.svelte:78 Page DIDs: (25) ['did:plc:hctajudph55ykkmvhm4knnyj', 'did:plc:y2mhuqlzq6o5edn2yulpsbee', 'did:plc:ffm3o4vz473f6q7idxz4pmz7', 'did:plc:itm6b6ikk3doajmp7vqo3o7y', 'did:plc:2xibtqlq4oplg5hkbqw56xgu', 'did:plc:3wuwsp5ioakcix2ppd6js53p', 'did:plc:yjsfytijkg7buvdkjrc2rydt', 'did:plc:fpqsj3rdp2ywlzda43czqo2n', 'did:plc:god7lmgkgqlybavtrf2clc2h', 'did:plc:pdfj2bwwtcism3cenqik7g43', 'did:plc:zha3q6pd5zhbr7dmgp25b3x5', 'did:plc:4dcp6k3kcop4jjjgssje5epl', 'did:plc:ympscj7qcsrcpj4qz35qhs3v', 'did:plc:pzgvqg4ihnaihkrpmxqz5pu6', 'did:plc:yctwuz4ztovjl67grd4adpbu', 'did:plc:zos5kmlm4vle7b4xntem6sat', 'did:plc:anvvmj5rdxhzo26gmhkgshnn', 'did:plc:mqptcphqrjhr5nziy33f3kco', 'did:plc:c577wa5hifxtmprlqc5mo5cb', 'did:plc:zivbusxwcsom5o6mf7kljzms', 'did:plc:qrt5rykojeg5sbsajbu4zdke', 'did:plc:dqgeb5s4oyrae77lmiz7xhcs', 'did:plc:uu5axsmbm2or2dngy4gwchec', 'did:plc:oqj65y3q564clf3qxgq4nbnh', 'did:plc:abkhhxmswjkp2e56gsnur57f']
+ListManager.svelte:81 Fetched 25 profiles for page 1
+ListManager.svelte:82 Profiles received: (25) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]

@@ -26,7 +26,13 @@ function createListStore() {
       } else {
         localStorage.removeItem(STORAGE_KEYS.SELECTED_LIST);
       }
-      update(state => ({ ...state, selectedList: list, isLoadingList: false }));
+      update(state => ({
+        ...state,
+        selectedList: list,
+        isLoadingList: !!list, // Set loading to true when a list is selected
+        listMembers: [], // Clear previous list members
+        listMemberProfiles: [] // Clear previous list member profiles
+      }));
     },
     setListLoading: (isLoading) => {
       update(state => ({ ...state, isLoadingList: isLoading }));

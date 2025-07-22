@@ -41,6 +41,10 @@ function createBlueskyStore() {
     clearSession: () => {
       localStorage.removeItem(STORAGE_KEYS.SESSION);
       set({ session: null, isLoading: false, error: null });
+    },
+    signOut: () => {
+      localStorage.removeItem(STORAGE_KEYS.SESSION);
+      set({ session: null, isLoading: false, error: null });
     }
   };
 }

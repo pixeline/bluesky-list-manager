@@ -1,90 +1,119 @@
-# 🦋 Bluesky Profile Catcher
+# Bluesky List Manager
 
-A PHP web application for discovering and curating Bluesky profiles. Search for profiles matching specific terms and add them to your Bluesky lists with ease.
-
-## ✨ Features
-
-- **Smart Search**: Find profiles containing specific terms in their names or descriptions
-- **List Management**: Add selected profiles to your Bluesky lists in bulk
-- **Duplicate Prevention**: Automatically detects and prevents adding profiles already in your list
-- **Visual Feedback**: Clear indicators showing which profiles are already in your list
-- **Docker Support**: Easy deployment with Docker Compose
+A modern web application for managing members in your Bluesky lists. Built with Svelte, Vite, and PHP.
 
 ## 🚀 Quick Start
 
-### 1. Configuration
-
-Copy the example environment file and configure your settings:
-
+### Using Docker (Recommended)
 ```bash
-cp .env.example .env
+# Make deployment script executable
+chmod +x deploy.sh
+
+# Deploy and build
+./deploy.sh
+
+# Start with Docker
+./start-docker.sh
 ```
 
-Edit `.env` with your Bluesky credentials:
-
-```env
-BLUESKY_HANDLE=your_handle.bsky.social
-BLUESKY_APP_PASSWORD=your_app_password_here
-```
-
-**Finding your LIST_RKEY:**
-- Go to your Bluesky list in the web interface
-- The URL will be something like: `https://bsky.app/profile/your_handle/lists/LIST_RKEY`
-- Copy the LIST_RKEY part
-
-### 2. Run with Docker
-
+### Manual Setup
 ```bash
-# Start the application
-docker-compose up -d
+# Install dependencies
+npm install
 
-# View logs
-docker-compose logs -f
-
-# Stop the application
-docker-compose down
+# Start development server
+npm run dev
 ```
 
-### 3. Access the Application
+## ✨ Features
 
-Open your browser and go to: http://localhost:8080
+- **List Management**: View and manage members in your Bluesky lists
+- **Profile Search**: Search for profiles by keywords in bio, display name, or handle
+- **Real-time Counts**: Accurate member counts with real-time updates
+- **Modern UI**: Clean, responsive interface built with Svelte and Tailwind CSS
+- **Error Handling**: Robust error handling with retry functionality
 
-## 🛠️ Local Development
+## 🔧 Recent Fixes
 
-If you prefer to run without Docker:
+### ✅ Profile Loading Issues Resolved
+- Fixed profile components showing generic placeholder cards
+- Proper API response parsing for Bluesky profile data
+- Enhanced error handling with retry buttons
 
-```bash
-# Make sure PHP is installed
-php --version
+### ✅ Member Count Discrepancy Fixed
+- Resolved inconsistency between dropdown and list details counts
+- Real-time member counting instead of stale cached data
+- Consistent UI across all components
 
-# Start the built-in PHP server
-php -S localhost:8000
+### ✅ Enhanced Debugging
+- Comprehensive API logging for troubleshooting
+- Better error messages and user feedback
+- Improved development experience
 
-# Access at http://localhost:8000
+## 📁 Project Structure
+
+```
+bluesky-search-for-belgians/
+├── src/                    # Svelte frontend components
+├── api/                    # PHP backend APIs
+├── static/                 # Static assets
+├── dist/                   # Built application (after npm run build)
+├── docker-compose.yml      # Docker configuration
+├── deploy.sh              # Deployment script
+└── DEPLOYMENT.md          # Detailed deployment guide
 ```
 
-## 📝 How It Works
+## 🛠️ Development
 
-1. **Search**: The app searches Bluesky for profiles matching your query
-2. **Filter**: Results are filtered to show matches in profile names/descriptions
-3. **Deduplicate**: Profiles already in your target list are marked
-4. **Bulk Add**: Select multiple profiles and add them to your list at once
-5. **Paginate**: Browse through all search results page by page
+### Prerequisites
+- Node.js 16+ and npm
+- PHP 8.0+ (for API endpoints)
+- Docker (optional, for containerized deployment)
 
-## 🔧 Configuration Options
+### Available Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `./deploy.sh` - Full deployment script
+- `./start-docker.sh` - Start with Docker
 
-- `BLUESKY_HANDLE`: Your Bluesky handle (e.g., username.bsky.social)
-- `BLUESKY_APP_PASSWORD`: Generate this in Bluesky Settings > App Passwords
+## 🔍 Troubleshooting
 
-## 🐳 Docker Details
+### Profile Loading Issues
+1. Check `api/debug.txt` for API errors
+2. Use retry button in the interface
+3. Verify Bluesky API responses
 
-- **Image**: PHP 8.2 with Apache
-- **Port**: 8080 (maps to container port 80)
+### Member Count Issues
+1. Refresh the page to reload data
+2. Check debug logs for counting errors
+3. Verify list selection is correct
+
+## 📚 Documentation
+
+- [Deployment Guide](DEPLOYMENT.md) - Comprehensive deployment instructions
+- [Docker Setup](README-DOCKER.md) - Docker-specific documentation
+- [Svelte Development](README-SVELTE.md) - Frontend development guide
 
 ## 🤝 Contributing
 
-Feel free to submit issues and enhancement requests!
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## 📄 License
 
-This project is open source and available under the MIT License.
+This project is open source and available under the [MIT License](LICENSE).
+
+## 🆘 Support
+
+For issues and questions:
+1. Check the [troubleshooting section](#troubleshooting)
+2. Review the debug logs in `api/debug.txt`
+3. Open an issue on GitHub
+
+---
+
+**Status**: ✅ Ready for deployment with all major issues resolved

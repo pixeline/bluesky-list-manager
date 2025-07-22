@@ -74,6 +74,12 @@
     return 'New candidate';
   }
 
+  // Reactive status tags that update when list members change
+  $: profileStatusTags = searchResults.map(profile => ({
+    profile,
+    status: $listStore.listMembers.includes(profile.did) ? 'Already in list' : 'New candidate'
+  }));
+
   async function handleAddToList(profile) {
     if (!$blueskyStore.session || !$listStore.selectedList || addingProfiles.has(profile.did)) return;
 
@@ -82,12 +88,9 @@
 
     try {
       await blueskyApi.addToList($blueskyStore.session, profile.did, $listStore.selectedList.uri);
-      // Refresh list members to update the status
-      const memberDids = await blueskyApi.getListMembers($blueskyStore.session, $listStore.selectedList.uri);
-      listStore.setListMembers(memberDids);
 
-      // Trigger refresh of list members display
-      listStore.refreshListMembers();
+      // Optimized: Add to local state immediately without full reload
+      await listStore.fetchAndAddProfile($blueskyStore.session, profile.did);
 
       // Trigger fireworks effect with blue butterfly emoji
       triggerButterflyConfetti();
@@ -197,12 +200,12 @@
     <!-- Search Results -->
     {#if searchResults.length > 0}
       <div class="space-y-4">
-        {#each searchResults as profile}
+        {#each profileStatusTags as { profile, status }}
           <BlueskyUserProfile
             {profile}
             isSelected={selectedProfiles.has(profile.did)}
             onSelect={handleProfileSelect}
-            statusTag={getStatusTag(profile)}
+            statusTag={status}
             clickable={true}
             onAddToList={handleAddToList}
             isAddingToList={addingProfiles.has(profile.did)}

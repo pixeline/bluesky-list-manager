@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Fixes</title>
+</head>
+<body>
+    <h1>Testing Fixes</h1>
+    <p>This is a simple test to verify the JavaScript syntax is correct.</p>
+
+    <script type="module">
+        // Test the configuration
+        import config from './src/config.js';
+        console.log('Config loaded:', config);
+        console.log('Environment:', config.isDevelopment ? 'Development' : 'Production');
+        console.log('Asset path test:', config.getAssetPath('static/test.svg'));
+
+        // Test the stores
+        import { blueskyStore } from './src/stores/blueskyStore.js';
+        import { listStore } from './src/stores/listStore.js';
+        console.log('Stores loaded successfully');
+
+        // Test the API service
+        import { blueskyApi } from './src/services/blueskyApi.js';
+        console.log('API service loaded successfully');
+
+        console.log('✅ All modules loaded successfully!');
+    </script>
+</body>
+</html>

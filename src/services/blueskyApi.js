@@ -1,4 +1,7 @@
-const API_BASE = '/api';
+import config from '../config.js';
+
+// Use configuration for API base path
+const API_BASE = config.apiBase;
 
 class BlueskyApi {
   async signIn(handle, password) {
@@ -37,7 +40,8 @@ class BlueskyApi {
     }
 
     const data = await response.json();
-    return data.records || [];
+    // Updated to handle new response format
+    return data.lists || [];
   }
 
   async getListInfo(session, listUri) {

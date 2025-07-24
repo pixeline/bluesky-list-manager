@@ -1,17 +1,17 @@
-import config from '../config.js';
+import { getStoredOAuthSession, createDpopJwt, generateDpopKeypair } from './oauthService.js';
 
-// Use configuration for API base path
-const API_BASE = config.apiBase;
+// Bluesky API base URL
+const BLUESKY_API = 'https://bsky.social/xrpc';
 
 class BlueskyApi {
   async signIn(handle, password) {
-    const response = await fetch(`${API_BASE}/auth.php`, {
+    const response = await fetch(`${BLUESKY_API}/com.atproto.server.createSession`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        handle: handle,
+        identifier: handle,
         password: password
       })
     });
@@ -24,150 +24,225 @@ class BlueskyApi {
     return await response.json();
   }
 
-  async getUserLists(session) {
-    const response = await fetch(`${API_BASE}/lists.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session: session
-      })
-    });
+  // Get authentication headers based on session type
+  async getAuthHeaders(session, authType = 'app_password') {
+    if (authType === 'oauth') {
+      // For OAuth, we need to create DPoP headers
+      const oauthSession = getStoredOAuthSession();
+      if (!oauthSession || !oauthSession.accessToken) {
+        throw new Error('No OAuth session found');
+      }
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch user lists');
+      // Generate a new DPoP keypair for this request
+      const dpopKeypair = await generateDpopKeypair();
+
+      // Create DPoP JWT for the request
+      const dpopJwt = await createDpopJwt(
+        dpopKeypair,
+        'GET', // Most Bluesky API calls are GET
+        `${BLUESKY_API}/app.bsky.graph.getLists`, // This will be overridden per request
+        oauthSession.serverNonce
+      );
+
+      return {
+        'Authorization': `Bearer ${oauthSession.accessToken}`,
+        'DPoP': dpopJwt,
+        'Content-Type': 'application/json'
+      };
+    } else {
+      // For app password, use the standard session format
+      return {
+        'Authorization': `Bearer ${session.accessJwt}`,
+        'Content-Type': 'application/json'
+      };
     }
-
-    const data = await response.json();
-    // Updated to handle new response format
-    return data.lists || [];
   }
 
-  async getListInfo(session, listUri) {
-    const response = await fetch(`${API_BASE}/list-info.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session: session,
-        listUri: listUri
-      })
-    });
+  // Helper method to make authenticated requests directly to Bluesky
+  async makeBlueskyRequest(endpoint, session, authType = 'app_password', method = 'GET', body = null) {
+    const headers = await this.getAuthHeaders(session, authType);
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch list info');
+    // For OAuth requests, we need to update the DPoP JWT for the specific endpoint
+    if (authType === 'oauth' && headers.DPoP) {
+      const oauthSession = getStoredOAuthSession();
+      const dpopKeypair = await generateDpopKeypair();
+      const dpopJwt = await createDpopJwt(
+        dpopKeypair,
+        method,
+        `${BLUESKY_API}/${endpoint}`,
+        oauthSession.serverNonce
+      );
+      headers.DPoP = dpopJwt;
     }
 
-    const data = await response.json();
-    return data.value;
-  }
+    const requestOptions = {
+      method,
+      headers
+    };
 
-  async getListMembers(session, listUri) {
-    const response = await fetch(`${API_BASE}/list-members.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session: session,
-        listUri: listUri
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch list members');
+    if (body && method !== 'GET') {
+      requestOptions.body = JSON.stringify(body);
     }
 
-    const data = await response.json();
-    return data.members || [];
+    const response = await fetch(`${BLUESKY_API}/${endpoint}`, requestOptions);
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || `Failed to fetch from ${endpoint}`);
+    }
+
+    return await response.json();
   }
 
-  async getProfiles(session, dids) {
+  async getUserLists(session, authType = 'app_password') {
+    // For OAuth, we need to get the user's handle first
+    if (authType === 'oauth') {
+      const oauthSession = getStoredOAuthSession();
+      if (!oauthSession.sub) {
+        throw new Error('No user DID found in OAuth session');
+      }
+
+      // Get user profile to get handle
+      const profile = await this.makeBlueskyRequest(
+        `app.bsky.actor.getProfile?actor=${oauthSession.sub}`,
+        session,
+        authType
+      );
+
+      const handle = profile.handle;
+      const data = await this.makeBlueskyRequest(
+        `app.bsky.graph.getLists?actor=${handle}`,
+        session,
+        authType
+      );
+      return data.lists || [];
+    } else {
+      // App password flow
+      const data = await this.makeBlueskyRequest(
+        `app.bsky.graph.getLists?actor=${session.handle}`,
+        session,
+        authType
+      );
+      return data.lists || [];
+    }
+  }
+
+  async getListInfo(session, listUri, authType = 'app_password') {
+    const data = await this.makeBlueskyRequest(
+      `app.bsky.graph.getList?list=${encodeURIComponent(listUri)}`,
+      session,
+      authType
+    );
+    return data.list;
+  }
+
+  async getListMembers(session, listUri, authType = 'app_password') {
+    // Extract list owner DID from URI
+    const listParts = listUri.split('/');
+    const listOwnerDid = listParts[2];
+
+    let allMembers = [];
+    let cursor = null;
+
+    do {
+      let url = `com.atproto.repo.listRecords?repo=${encodeURIComponent(listOwnerDid)}&collection=app.bsky.graph.listitem&limit=100`;
+      if (cursor) {
+        url += `&cursor=${encodeURIComponent(cursor)}`;
+      }
+
+      const data = await this.makeBlueskyRequest(url, session, authType);
+
+      // Filter records that belong to our target list
+      const listMembers = data.records
+        .filter(record => record.value.list === listUri)
+        .map(record => record.value.subject);
+
+      allMembers = allMembers.concat(listMembers);
+      cursor = data.cursor;
+    } while (cursor);
+
+    return allMembers;
+  }
+
+  async getProfiles(session, dids, authType = 'app_password') {
     if (!dids || dids.length === 0) return [];
 
-    const response = await fetch(`${API_BASE}/profiles.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session: session,
-        dids: dids
-      })
-    });
+    const profiles = [];
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch profiles');
+    // Bluesky doesn't have a batch profile endpoint, so we need individual requests
+    for (const did of dids) {
+      try {
+        const profile = await this.makeBlueskyRequest(
+          `app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`,
+          session,
+          authType
+        );
+        profiles.push(profile);
+      } catch (error) {
+        console.error(`Failed to fetch profile for ${did}:`, error);
+        // Add a placeholder profile
+        profiles.push({
+          did,
+          handle: 'unknown',
+          displayName: 'Unknown User',
+          avatar: null,
+          description: null
+        });
+      }
     }
 
-    const data = await response.json();
-    return data.profiles || [];
+    return profiles;
   }
 
-  async searchProfiles(session, query, limit = 25, cursor = null) {
-    const response = await fetch(`${API_BASE}/search.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session: session,
-        query: query,
-        limit: limit,
-        cursor: cursor
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to search profiles');
+  async searchProfiles(session, query, authType = 'app_password', limit = 25, cursor = null) {
+    let url = `app.bsky.actor.searchActors?term=${encodeURIComponent(query)}&limit=${limit}`;
+    if (cursor) {
+      url += `&cursor=${encodeURIComponent(cursor)}`;
     }
 
-    const data = await response.json();
+    const data = await this.makeBlueskyRequest(url, session, authType);
     return {
       actors: data.actors || [],
       cursor: data.cursor
     };
   }
 
-  async addToList(session, userDid, listUri) {
-    const response = await fetch(`${API_BASE}/add-to-list.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session: session,
-        userDid: userDid,
-        listUri: listUri
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to add to list');
+  async addToList(session, did, listUri, authType = 'app_password') {
+    // For OAuth, we need to get the user's DID
+    let userDid;
+    if (authType === 'oauth') {
+      const oauthSession = getStoredOAuthSession();
+      userDid = oauthSession.sub;
+    } else {
+      userDid = session.did;
     }
 
-    return await response.json();
+    const data = await this.makeBlueskyRequest(
+      'com.atproto.repo.createRecord',
+      session,
+      authType,
+      'POST',
+      {
+        repo: userDid,
+        collection: 'app.bsky.graph.listitem',
+        record: {
+          '$type': 'app.bsky.graph.listitem',
+          subject: did,
+          list: listUri,
+          createdAt: new Date().toISOString()
+        }
+      }
+    );
+
+    return data;
   }
 
-  async resolveHandle(handle) {
-    const response = await fetch(`${API_BASE}/resolve-handle.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        handle: handle
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to resolve handle');
-    }
-
-    const data = await response.json();
+  async resolveHandle(session, handle, authType = 'app_password') {
+    const data = await this.makeBlueskyRequest(
+      `com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`,
+      session,
+      authType
+    );
     return data.did;
   }
 }

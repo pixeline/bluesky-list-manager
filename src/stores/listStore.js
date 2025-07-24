@@ -78,17 +78,16 @@ function createListStore() {
       });
     },
     // New method: Fetch and add profile data for a single DID
-    fetchAndAddProfile: (session, did) => {
+    fetchAndAddProfile: (session, did, authType = 'app_password') => {
+      if (isUpdating) {
+        return Promise.resolve();
+      }
+
+      isUpdating = true;
+
       return new Promise(async (resolve) => {
-        if (isUpdating) {
-          resolve();
-          return;
-        }
-
-        isUpdating = true;
-
         try {
-          const profiles = await blueskyApi.getProfiles(session, [did]);
+          const profiles = await blueskyApi.getProfiles(session, [did], authType);
           if (profiles.length > 0) {
             const profile = profiles[0];
 

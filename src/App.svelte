@@ -13,9 +13,10 @@
 	let currentView = 'auth'; // 'auth', 'list-selector', 'manager'
 
 	onMount(() => {
-		// Check if user is already authenticated
-		const session = blueskyStore.getSession();
+		// Initialize session from storage (check both OAuth and app password)
+		const { session, authType } = blueskyStore.initializeSession();
 		if (session) {
+			console.log('Session restored:', { authType, handle: session.handle || session.did });
 			currentView = 'list-selector';
 		}
 	});

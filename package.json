@@ -17,6 +17,8 @@
         "vite": "^5.0.0"
     },
     "dependencies": {
-        "canvas-confetti": "^1.6.0"
+        "canvas-confetti": "^1.6.0",
+        "@atproto/api": "^0.15.6",
+        "jose": "^6.0.11"
     }
 }

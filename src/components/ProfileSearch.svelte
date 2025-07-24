@@ -25,7 +25,11 @@
 		hasNextPage = false;
 
 		try {
-			const result = await blueskyApi.searchProfiles($blueskyStore.session, searchQuery, 25);
+			const result = await blueskyApi.searchProfiles(
+				$blueskyStore.session,
+				searchQuery,
+				$blueskyStore.authType
+			);
 			searchResults = result.actors || [];
 			currentCursor = result.cursor;
 			hasNextPage = !!result.cursor;
@@ -46,6 +50,7 @@
 			const result = await blueskyApi.searchProfiles(
 				$blueskyStore.session,
 				searchQuery,
+				$blueskyStore.authType,
 				25,
 				currentCursor
 			);

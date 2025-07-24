@@ -52,7 +52,8 @@
 		try {
 			const memberDids = await blueskyApi.getListMembers(
 				$blueskyStore.session,
-				$listStore.selectedList.uri
+				$listStore.selectedList.uri,
+				$blueskyStore.authType
 			);
 			console.log('Raw member DIDs:', memberDids);
 			listStore.setListMembers(memberDids);
@@ -101,7 +102,11 @@
 			);
 			console.log('Page DIDs:', pageDids);
 
-			const profiles = await blueskyApi.getProfiles($blueskyStore.session, pageDids);
+			const profiles = await blueskyApi.getProfiles(
+				$blueskyStore.session,
+				pageDids,
+				$blueskyStore.authType
+			);
 			console.log(`Fetched ${profiles.length} profiles for page ${page}`);
 			console.log('Profiles received:', profiles);
 
@@ -144,11 +149,16 @@
 
 		for (const did of profilesToAdd) {
 			try {
-				await blueskyApi.addToList($blueskyStore.session, did, $listStore.selectedList.uri);
+				await blueskyApi.addToList(
+					$blueskyStore.session,
+					did,
+					$listStore.selectedList.uri,
+					$blueskyStore.authType
+				);
 				addResults.success.push(did);
 
 				// Optimized: Add to local state immediately with profile data
-				await listStore.fetchAndAddProfile($blueskyStore.session, did);
+				await listStore.fetchAndAddProfile($blueskyStore.session, did, $blueskyStore.authType);
 			} catch (err) {
 				addResults.errors.push({ did, error: err.message });
 			}

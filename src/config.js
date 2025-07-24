@@ -2,9 +2,6 @@
 const isProduction = import.meta.env.PROD || import.meta.env.MODE === 'production';
 
 const config = {
-  // API base path - works for both local development and production subfolder
-  apiBase: isProduction ? './api' : '/api',
-
   // Static assets base path - relative to current location
   staticBase: 'static',
 

@@ -227,13 +227,16 @@
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6" id="list-manager">
 	<!-- List Statistics -->
 	<ListStatistics />
 
 	<!-- Action Bar -->
 	{#if selectedProfiles.size > 0}
-		<div class="sticky top-20 z-40 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+		<div
+			class="sticky top-20 z-40 bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+			id="action-bar"
+		>
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-3">
 					<button
@@ -279,7 +282,7 @@
 	{/if}
 
 	<!-- Two Column Layout -->
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="list-manager-layout">
 		<!-- Column 1: Latest List Members -->
 		<div
 			id="list-members-container"

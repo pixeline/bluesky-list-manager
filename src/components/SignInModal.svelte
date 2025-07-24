@@ -78,6 +78,7 @@
 	aria-modal="true"
 	tabindex="-1"
 	on:keydown={(e) => e.key === 'Escape' && handleClose()}
+	id="sign-in-modal"
 >
 	<!-- Invisible backdrop button for accessibility -->
 	<button
@@ -86,7 +87,11 @@
 		aria-label="Close modal"
 		type="button"
 	></button>
-	<div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative z-10" role="document">
+	<div
+		class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative z-10"
+		role="document"
+		id="sign-in-modal-content"
+	>
 		<div class="flex items-center justify-between mb-4">
 			<h2 class="text-xl font-semibold text-slate-800">Sign in to Bluesky</h2>
 			<button on:click={handleClose} class="text-gray-400 hover:text-gray-600 text-2xl font-bold">

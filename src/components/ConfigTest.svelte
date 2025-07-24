@@ -2,7 +2,7 @@
 	import config from '../config.js';
 </script>
 
-<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4" id="config-test">
 	<h3 class="text-sm font-semibold text-blue-800 mb-2">Configuration Test</h3>
 	<div class="text-xs text-blue-700 space-y-1">
 		<div><strong>Environment:</strong> {config.isDevelopment ? 'Development' : 'Production'}</div>

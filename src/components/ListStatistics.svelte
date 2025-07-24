@@ -333,7 +333,7 @@
 	}
 </script>
 
-<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6" id="list-statistics">
 	<!-- Header -->
 	<div class="flex items-center justify-between mb-6">
 		<div>

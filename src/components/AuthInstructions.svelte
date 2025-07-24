@@ -15,6 +15,7 @@
 
 <div
 	class="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto relative z-100"
+	id="auth-instructions"
 >
 	<div class="text-center mb-8">
 		<div class="text-6xl mb-4">
@@ -34,10 +35,11 @@
 	</div>
 
 	<!-- CTA Above Image -->
-	<div class="text-center mb-8">
+	<div class="text-center mb-8" id="auth-cta">
 		<button
 			on:click={handleSignIn}
 			class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-8 py-4 rounded-lg text-xl font-medium cursor-pointer transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+			id="auth-sign-in-button"
 		>
 			🚀 Start Building Better Lists - Sign in with Bluesky
 		</button>

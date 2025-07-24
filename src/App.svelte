@@ -34,7 +34,7 @@
 	}
 </script>
 
-<main class="min-h-screen bg-gray-50">
+<main class="min-h-screen bg-gray-50" id="app-main">
 	<!-- Butterfly Background -->
 	<ButterflyBackground />
 
@@ -42,7 +42,7 @@
 		<Header />
 	{/if}
 
-	<div class="max-w-6xl mx-auto p-6">
+	<div class="max-w-6xl mx-auto p-6" id="app-content">
 		{#if currentView === 'auth'}
 			<AuthInstructions />
 		{:else if currentView === 'list-selector'}

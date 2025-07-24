@@ -1,6 +1,7 @@
 <script>
 	import config from '../config.js';
 	import SignInModal from './SignInModal.svelte';
+	import ZoomableImage from './ZoomableImage.svelte';
 
 	let showSignInModal = false;
 
@@ -41,22 +42,30 @@
 			class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-8 py-4 rounded-lg text-xl font-medium cursor-pointer transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
 			id="auth-sign-in-button"
 		>
-			🚀 Start Building Better Lists - Sign in with Bluesky
+			🚀 Sign in with Bluesky to manage your lists
 		</button>
 		<p class="text-sm text-gray-500 mt-3">
 			100% free • No registration required • Works instantly • Zero data stored on our servers
 		</p>
 	</div>
 
-	<!-- Preview Image -->
+	<!-- Preview Image with Zoom Effect -->
 	<div class="mb-8 text-center">
-		<div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-			<img
-				src={config.getAssetPath('static/screencapture.png')}
-				alt="Bluesky List Manager Preview - Showing list statistics and member management interface"
-				class="w-full max-w-4xl mx-auto rounded-lg shadow-md"
-			/>
-			<p class="text-sm text-gray-600 mt-3">
+		<div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+			<div class="screenshot-container">
+				<ZoomableImage
+					src={config.getAssetPath('static/screencapture.png')}
+					alt="Bluesky List Manager Preview - Showing list statistics and member management interface"
+					width="100%"
+					height="auto"
+					className="screenshot-zoom-image"
+					zoomFactor={3}
+				/>
+				<div class="zoom-overlay">
+					<div class="zoom-hint">🔍 Move mouse to zoom and explore the interface</div>
+				</div>
+			</div>
+			<p class="text-sm text-gray-600 mt-4">
 				See your list insights and manage members with powerful analytics
 			</p>
 		</div>
@@ -71,10 +80,7 @@
 					<span class="text-red-500 mr-2">•</span>
 					<span>Search one profile at a time</span>
 				</li>
-				<li class="flex items-start">
-					<span class="text-red-500 mr-2">•</span>
-					<span>Click through each profile manually</span>
-				</li>
+
 				<li class="flex items-start">
 					<span class="text-red-500 mr-2">•</span>
 					<span>Forget who you've already added</span>
@@ -97,10 +103,6 @@
 				<li class="flex items-start">
 					<span class="text-green-500 mr-2">•</span>
 					<span><strong>Instant filtering</strong> - see who's already in your list</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-green-500 mr-2">•</span>
-					<span><strong>One-click adding</strong> of multiple profiles</span>
 				</li>
 				<li class="flex items-start">
 					<span class="text-green-500 mr-2">•</span>
@@ -188,3 +190,59 @@
 {#if showSignInModal}
 	<SignInModal on:close={closeSignInModal} />
 {/if}
+
+<style>
+	.screenshot-container {
+		position: relative;
+		overflow: hidden;
+		border-radius: 0.5rem;
+	}
+
+	.zoom-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.1);
+		opacity: 1;
+		transition: opacity 0.3s ease-in-out;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.screenshot-container:hover .zoom-overlay {
+		opacity: 0;
+	}
+
+	.zoom-hint {
+		background: rgba(0, 0, 0, 0.8);
+		color: white;
+		padding: 0.75rem 1.5rem;
+		border-radius: 2rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		backdrop-filter: blur(4px);
+		transform: translateY(0);
+		transition: transform 0.3s ease-in-out;
+	}
+
+	.screenshot-container:hover .zoom-hint {
+		transform: translateY(20px);
+	}
+
+	/* Responsive adjustments */
+	@media (max-width: 768px) {
+		.zoom-hint {
+			font-size: 0.75rem;
+			padding: 0.5rem 1rem;
+		}
+	}
+
+	/* Smooth scrolling for better UX */
+	.screenshot-container {
+		scroll-behavior: smooth;
+	}
+</style>

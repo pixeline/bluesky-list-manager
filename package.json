@@ -21,6 +21,7 @@
     },
     "dependencies": {
         "@atproto/api": "^0.15.6",
+        "@zoom-image/svelte": "^0.3.4",
         "canvas-confetti": "^1.6.0",
         "jose": "^6.0.11"
     }

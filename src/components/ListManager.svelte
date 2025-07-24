@@ -227,7 +227,7 @@
 	}
 </script>
 
-<div class="space-y-6" id="list-manager">
+<div class="space-y-6 relative z-100" id="list-manager">
 	<!-- List Statistics -->
 	<ListStatistics />
 

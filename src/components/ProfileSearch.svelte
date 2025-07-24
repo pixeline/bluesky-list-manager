@@ -8,6 +8,7 @@
 	let searchQuery = '';
 	let searchResults = [];
 	let isLoading = false;
+	let isCheckingMembership = false; // New loading state for membership checking
 	let error = '';
 	let selectedProfiles = new Set();
 	let currentCursor = null;
@@ -18,6 +19,7 @@
 		if (!searchQuery.trim() || !$blueskyStore.session) return;
 
 		isLoading = true;
+		isCheckingMembership = false;
 		error = '';
 		searchResults = [];
 		selectedProfiles.clear();
@@ -30,13 +32,21 @@
 				searchQuery,
 				$blueskyStore.authType
 			);
-			searchResults = result.actors || [];
+
+			// Show membership checking loading state
+			isCheckingMembership = true;
+
+			// Check membership for all search results immediately
+			const profilesWithMembership = await checkMembershipForProfiles(result.actors || []);
+
+			searchResults = profilesWithMembership;
 			currentCursor = result.cursor;
 			hasNextPage = !!result.cursor;
 		} catch (err) {
 			error = err.message || 'Failed to search profiles';
 		} finally {
 			isLoading = false;
+			isCheckingMembership = false;
 		}
 	}
 
@@ -44,6 +54,7 @@
 		if (!hasNextPage || isLoading || !$blueskyStore.session) return;
 
 		isLoading = true;
+		isCheckingMembership = false;
 		error = '';
 
 		try {
@@ -54,13 +65,21 @@
 				25,
 				currentCursor
 			);
-			searchResults = [...searchResults, ...(result.actors || [])];
+
+			// Show membership checking loading state
+			isCheckingMembership = true;
+
+			// Check membership for new search results immediately
+			const profilesWithMembership = await checkMembershipForProfiles(result.actors || []);
+
+			searchResults = [...searchResults, ...profilesWithMembership];
 			currentCursor = result.cursor;
 			hasNextPage = !!result.cursor;
 		} catch (err) {
 			error = err.message || 'Failed to load more profiles';
 		} finally {
 			isLoading = false;
+			isCheckingMembership = false;
 		}
 	}
 
@@ -109,7 +128,10 @@
 	// Reactive status tags that update when list members change
 	$: profileStatusTags = searchResults.map((profile) => ({
 		profile,
-		status: $listStore.listMembers.includes(profile.did) ? 'Already in list' : 'New candidate'
+		status:
+			profile._isInList || $listStore.listMembers.includes(profile.did)
+				? 'Already in list'
+				: 'New candidate'
 	}));
 
 	async function handleAddToList(profile) {
@@ -185,6 +207,24 @@
 			});
 		}, 300);
 	}
+
+	async function checkMembershipForProfiles(profiles) {
+		if (!profiles.length || !$listStore.selectedList) return profiles;
+
+		// Get all list member DIDs in one API call (much faster than checking each profile individually)
+		const allListMemberDids = await listStore.getAllListMemberDids(
+			$blueskyStore.session,
+			$blueskyStore.authType
+		);
+
+		// Check all profiles against the complete list of member DIDs
+		const profilesWithMembership = profiles.map((profile) => ({
+			...profile,
+			_isInList: allListMemberDids.has(profile.did)
+		}));
+
+		return profilesWithMembership;
+	}
 </script>
 
 <div class="bg-white rounded-lg shadow-sm border border-gray-200" id="profile-search">
@@ -218,6 +258,9 @@
 					{#if isLoading}
 						<span class="loading-spinner"></span>
 						Searching...
+					{:else if isCheckingMembership}
+						<span class="loading-spinner"></span>
+						Checking membership...
 					{:else}
 						🔍 Search
 					{/if}
@@ -233,7 +276,12 @@
 		{/if}
 
 		<!-- Search Results -->
-		{#if searchResults.length > 0}
+		{#if isCheckingMembership}
+			<div class="text-center py-8">
+				<div class="loading-spinner mx-auto mb-4"></div>
+				<p class="text-slate-600">Checking membership status...</p>
+			</div>
+		{:else if searchResults.length > 0}
 			<div class="space-y-4">
 				{#each profileStatusTags as { profile, status }}
 					<BlueskyUserProfile

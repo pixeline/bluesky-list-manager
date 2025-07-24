@@ -7,6 +7,7 @@
 	export let clickable = false;
 	export let onAddToList = () => {};
 	export let isAddingToList = false;
+	export let isCheckingMembership = false; // New prop for membership checking state
 
 	function handleSelect() {
 		onSelect(profile);
@@ -113,6 +114,15 @@
 							{/if}
 						</button>
 					</div>
+				{:else if isCheckingMembership}
+					<div class="flex items-center space-x-2">
+						<span
+							class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+						>
+							<span class="loading-spinner mr-1"></span>
+							Checking...
+						</span>
+					</div>
 				{:else if showCheckbox}
 					<div class="flex items-center space-x-2">
 						<input
@@ -182,7 +192,7 @@
 				{#if statusTag === 'Already in list'}
 					<div class="flex items-center space-x-2">
 						<span
-							class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+							class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
 						>
 							{statusTag}
 						</span>
@@ -206,6 +216,15 @@
 								Add to list
 							{/if}
 						</button>
+					</div>
+				{:else if isCheckingMembership}
+					<div class="flex items-center space-x-2">
+						<span
+							class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+						>
+							<span class="loading-spinner mr-1"></span>
+							Checking...
+						</span>
 					</div>
 				{:else if showCheckbox}
 					<div class="flex items-center space-x-2">

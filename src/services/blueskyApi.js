@@ -238,6 +238,83 @@ class BlueskyApi {
     return data;
   }
 
+    async removeFromList(session, did, listUri, authType = 'app_password') {
+    // For OAuth, we need to get the user's DID
+    let userDid;
+    if (authType === 'oauth') {
+      const oauthSession = getStoredOAuthSession();
+      userDid = oauthSession.sub;
+    } else {
+      userDid = session.did;
+    }
+
+    console.log('removeFromList: Searching for DID:', did, 'in list:', listUri, 'for user:', userDid);
+
+    // Get all list item records from the user's repository
+    let cursor = null;
+    let foundRecord = null;
+    let totalRecordsChecked = 0;
+
+    do {
+      const listItems = await this.makeBlueskyRequest(
+        `com.atproto.repo.listRecords?repo=${userDid}&collection=app.bsky.graph.listitem&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        session,
+        authType
+      );
+
+      console.log('removeFromList: Found', listItems.records?.length || 0, 'records in this batch');
+
+      // Find the specific list item record for this DID and list
+      foundRecord = listItems.records.find(record => {
+        totalRecordsChecked++;
+        const matches = record.value.subject === did && record.value.list === listUri;
+        if (matches) {
+          console.log('removeFromList: Found matching record:', record);
+        }
+        return matches;
+      });
+
+      if (foundRecord) {
+        console.log('removeFromList: Found record with rkey:', foundRecord.rkey);
+        break; // Found the record, no need to continue searching
+      }
+
+      cursor = listItems.cursor;
+    } while (cursor && !foundRecord);
+
+    console.log('removeFromList: Total records checked:', totalRecordsChecked);
+
+    if (!foundRecord) {
+      throw new Error('List item not found');
+    }
+
+    // Extract rkey from the URI (it's the last part after the last slash)
+    const rkey = foundRecord.uri.split('/').pop();
+
+    if (!rkey) {
+      console.error('removeFromList: Could not extract rkey from URI:', foundRecord.uri);
+      throw new Error('Could not extract rkey from URI');
+    }
+
+    console.log('removeFromList: Deleting record with rkey:', rkey);
+
+    // Delete the record
+    const data = await this.makeBlueskyRequest(
+      'com.atproto.repo.deleteRecord',
+      session,
+      authType,
+      'POST',
+      {
+        repo: userDid,
+        collection: 'app.bsky.graph.listitem',
+        rkey: rkey
+      }
+    );
+
+    console.log('removeFromList: Delete successful');
+    return data;
+  }
+
   async resolveHandle(session, handle, authType = 'app_password') {
     const data = await this.makeBlueskyRequest(
       `com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`,

@@ -12,6 +12,8 @@
 	let selectedProfiles = new Set();
 	let isAddingProfiles = false;
 	let addResults = { success: [], errors: [] };
+	let removingProfiles = new Set();
+	let removeResults = { success: [], errors: [] };
 	let currentMembersPage = 1;
 	const membersPerPage = 25;
 	let isLoadingMembersPage = false;
@@ -204,6 +206,60 @@
 		isAddingProfiles = false;
 	}
 
+	async function removeFromList(profileDid) {
+		if (!profileDid || !$listStore.selectedList || !$blueskyStore.session) return;
+
+		removingProfiles.add(profileDid);
+
+		try {
+			await blueskyApi.removeFromList(
+				$blueskyStore.session,
+				profileDid,
+				$listStore.selectedList.uri,
+				$blueskyStore.authType
+			);
+
+			// Add to success results
+			removeResults.success.push(profileDid);
+
+			// Remove from current page display without triggering full reload
+			const remainingProfiles = $listStore.listMemberProfiles.filter(
+				(profile) => profile.did !== profileDid
+			);
+			listStore.setListMemberProfiles(remainingProfiles);
+
+			// Also remove from the list members array
+			const remainingMembers = $listStore.listMembers.filter((did) => did !== profileDid);
+			listStore.setListMembers(remainingMembers);
+
+			// Update member count locally without triggering reactive reload
+			totalMemberCount = Math.max(0, totalMemberCount - 1);
+			totalPages = Math.ceil(totalMemberCount / membersPerPage);
+
+			// Update user lists
+			const updatedUserLists = $listStore.userLists.map((list) => {
+				if (list.uri === $listStore.selectedList.uri) {
+					return {
+						...list,
+						memberCount: Math.max(0, (list.memberCount || 0) - 1)
+					};
+				}
+				return list;
+			});
+			listStore.setUserLists(updatedUserLists);
+		} catch (error) {
+			console.error('Failed to remove profile from list:', error);
+			removeResults.errors.push({ profileDid, error: error.message });
+		} finally {
+			removingProfiles.delete(profileDid);
+
+			// Clear results after 5 seconds
+			setTimeout(() => {
+				removeResults = { success: [], errors: [] };
+			}, 5000);
+		}
+	}
+
 	function isProfileInList(profileDid) {
 		return $listStore.listMembers.includes(profileDid);
 	}
@@ -281,6 +337,27 @@
 		</div>
 	{/if}
 
+	{#if removeResults.success.length > 0}
+		<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+			<p class="text-blue-700 font-medium">
+				🗑️ Successfully removed {removeResults.success.length} profiles from your list!
+			</p>
+		</div>
+	{/if}
+
+	{#if removeResults.errors.length > 0}
+		<div class="bg-red-50 border border-red-200 rounded-lg p-4">
+			<p class="text-red-700 font-medium mb-2">
+				❌ Failed to remove {removeResults.errors.length} profiles:
+			</p>
+			<ul class="text-red-600 text-sm space-y-1">
+				{#each removeResults.errors as error}
+					<li>• {error.error}</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
+
 	<!-- Two Column Layout -->
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="list-manager-layout">
 		<!-- Column 1: Latest List Members -->
@@ -341,11 +418,8 @@
 								</div>
 							{:else if $listStore.listMemberProfiles.length > 0}
 								{#each $listStore.listMemberProfiles as profile}
-									<a
-										href="https://bsky.app/profile/{profile.handle}"
-										target="_blank"
-										rel="noopener noreferrer"
-										class="block bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 hover:border-gray-300 transition-colors duration-200 cursor-pointer"
+									<div
+										class="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 hover:border-gray-300 transition-colors duration-200"
 									>
 										<div class="flex items-center space-x-3">
 											<div class="flex-shrink-0">
@@ -360,37 +434,57 @@
 												/>
 											</div>
 											<div class="flex-1 min-w-0">
-												<div class="flex items-center space-x-2 mb-1">
-													<h4 class="text-sm font-semibold text-gray-900 truncate">
-														{profile.displayName || profile.handle}
-													</h4>
-													<span class="text-xs text-gray-600 truncate">
-														@{profile.handle}
-													</span>
-												</div>
-												{#if profile.description}
-													<p class="text-xs text-gray-600 line-clamp-2">
-														{profile.description}
-													</p>
-												{/if}
+												<a
+													href="https://bsky.app/profile/{profile.handle}"
+													target="_blank"
+													rel="noopener noreferrer"
+													class="block hover:underline"
+												>
+													<div class="flex items-center space-x-2 mb-1">
+														<h4 class="text-sm font-semibold text-gray-900 truncate">
+															{profile.displayName || profile.handle}
+														</h4>
+														<span class="text-xs text-gray-600 truncate">
+															@{profile.handle}
+														</span>
+														<svg
+															class="w-3 h-3 text-gray-400"
+															fill="none"
+															stroke="currentColor"
+															viewBox="0 0 24 24"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+															></path>
+														</svg>
+													</div>
+													{#if profile.description}
+														<p class="text-xs text-gray-600 line-clamp-2">
+															{profile.description}
+														</p>
+													{/if}
+												</a>
 											</div>
 											<div class="flex-shrink-0">
-												<svg
-													class="w-4 h-4 text-gray-400"
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
+												<button
+													on:click={() => removeFromList(profile.did)}
+													disabled={removingProfiles.has(profile.did)}
+													class="bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 px-3 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+													title="Remove from list"
 												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-													></path>
-												</svg>
+													{#if removingProfiles.has(profile.did)}
+														<span class="loading-spinner mr-1"></span>
+														Removing...
+													{:else}
+														🗑️ Remove
+													{/if}
+												</button>
 											</div>
 										</div>
-									</a>
+									</div>
 								{/each}
 							{:else}
 								<!-- Fallback for when profiles haven't loaded yet or failed to load -->

@@ -17,6 +17,7 @@ function createListStore() {
   });
 
   let isUpdating = false; // Flag to prevent cascading updates
+  let membershipCache = new Map(); // Cache for membership checks
 
   return {
     subscribe,
@@ -33,6 +34,8 @@ function createListStore() {
         listMembers: [], // Clear previous list members
         listMemberProfiles: [] // Clear previous list member profiles
       }));
+      // Clear membership cache when list changes
+      membershipCache.clear();
     },
     setListLoading: (isLoading) => {
       update(state => ({ ...state, isLoadingList: isLoading }));
@@ -52,6 +55,60 @@ function createListStore() {
         return state;
       });
       return result;
+    },
+    // New method: Check if a profile is in the entire list (not just current page)
+    async isProfileInEntireList(session, profileDid, authType = 'app_password') {
+      let currentState;
+      update(state => {
+        currentState = state;
+        return state;
+      });
+
+      // Check cache first
+      const cacheKey = `${currentState.selectedList?.uri}-${profileDid}`;
+      if (membershipCache.has(cacheKey)) {
+        return membershipCache.get(cacheKey);
+      }
+
+      // Check if it's in the current page first (fast check)
+      if (currentState.listMembers.includes(profileDid)) {
+        membershipCache.set(cacheKey, true);
+        return true;
+      }
+
+      // If not in current page, check the entire list via API
+      try {
+        let cursor = null;
+        const batchSize = 100; // Use larger batches for efficiency
+
+        do {
+          const result = await blueskyApi.getListMembers(
+            session,
+            currentState.selectedList.uri,
+            authType,
+            batchSize,
+            cursor
+          );
+
+          // Check if the profile is in this batch
+          if (result.members.includes(profileDid)) {
+            membershipCache.set(cacheKey, true);
+            return true;
+          }
+
+          cursor = result.cursor;
+        } while (cursor);
+
+        // Profile not found in entire list
+        membershipCache.set(cacheKey, false);
+        return false;
+      } catch (error) {
+        console.error('Error checking profile membership:', error);
+        // Fall back to current page check
+        const isInCurrentPage = currentState.listMembers.includes(profileDid);
+        membershipCache.set(cacheKey, isInCurrentPage);
+        return isInCurrentPage;
+      }
     },
     setListMemberProfiles: (profiles) => {
       update(state => ({ ...state, listMemberProfiles: profiles }));
@@ -252,6 +309,53 @@ function createListStore() {
     clearSelectedList: () => {
       localStorage.removeItem(STORAGE_KEYS.SELECTED_LIST);
       update(state => ({ ...state, selectedList: null }));
+    },
+    // New method: Get all member DIDs from the entire list (for bulk checking)
+    async getAllListMemberDids(session, authType = 'app_password') {
+      let currentState;
+      update(state => {
+        currentState = state;
+        return state;
+      });
+
+      if (!currentState.selectedList) return new Set();
+
+      // Check cache first
+      const cacheKey = `${currentState.selectedList.uri}-all-dids`;
+      if (membershipCache.has(cacheKey)) {
+        return membershipCache.get(cacheKey);
+      }
+
+      try {
+        let allDids = new Set();
+        let cursor = null;
+        const batchSize = 100; // Use larger batches for efficiency
+
+        do {
+          const result = await blueskyApi.getListMembers(
+            session,
+            currentState.selectedList.uri,
+            authType,
+            batchSize,
+            cursor
+          );
+
+          // Add all DIDs from this batch to the set
+          result.members.forEach(did => allDids.add(did));
+
+          cursor = result.cursor;
+        } while (cursor);
+
+        // Cache the result for future use
+        membershipCache.set(cacheKey, allDids);
+        return allDids;
+      } catch (error) {
+        console.error('Error getting all list member DIDs:', error);
+        // Fall back to current page DIDs
+        const currentPageDids = new Set(currentState.listMembers);
+        membershipCache.set(cacheKey, currentPageDids);
+        return currentPageDids;
+      }
     }
   };
 }

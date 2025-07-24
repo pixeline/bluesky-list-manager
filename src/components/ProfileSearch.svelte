@@ -84,23 +84,25 @@
 		return 'New candidate';
 	}
 
-	// Clear search results and query when selected list changes (but not on initial load)
+	// Clear search results and query when selected list changes
 	let previousListUri = null;
-	$: if (
-		$listStore.selectedList &&
-		previousListUri &&
-		previousListUri !== $listStore.selectedList.uri
-	) {
-		// Reset search form and results when list changes
-		searchQuery = '';
-		searchResults = [];
-		selectedProfiles.clear();
-		currentCursor = null;
-		hasNextPage = false;
-		error = '';
-	}
+	let isInitialLoad = true;
+
 	$: if ($listStore.selectedList) {
+		// Only reset if this is not the initial load and the list has actually changed
+		if (!isInitialLoad && previousListUri && previousListUri !== $listStore.selectedList.uri) {
+			// Reset search form and results when list changes
+			searchQuery = '';
+			searchResults = [];
+			selectedProfiles.clear();
+			currentCursor = null;
+			hasNextPage = false;
+			error = '';
+		}
+
+		// Update tracking variables
 		previousListUri = $listStore.selectedList.uri;
+		isInitialLoad = false;
 	}
 
 	// Reactive status tags that update when list members change

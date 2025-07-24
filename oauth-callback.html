@@ -112,68 +112,15 @@
         </div>
     </div>
 
-    <script type="module">
-        import { handleOAuthCallback, storeOAuthSession } from './src/services/oauthService.js';
+        <script>
+        // For production, we need to use the standalone callback page
+        // This page should redirect to the standalone version
+        const path = window.location.pathname;
+        const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
+        const standaloneUrl = `${window.location.origin}${basePath}/oauth-callback-standalone.html${window.location.search}`;
 
-        const loadingEl = document.getElementById('loading');
-        const errorEl = document.getElementById('error');
-        const successEl = document.getElementById('success');
-        const errorMessageEl = document.getElementById('error-message');
-        const errorDetailsEl = document.getElementById('error-details');
-
-        // Make goHome function globally available
-        window.goHome = function() {
-            window.location.href = '/';
-        };
-
-        async function processCallback() {
-            try {
-                // Get query parameters from URL
-                const urlParams = new URLSearchParams(window.location.search);
-
-                // Check for error response from auth server
-                if (urlParams.has('error')) {
-                    const error = urlParams.get('error');
-                    const errorDescription = urlParams.get('error_description');
-
-                    errorMessageEl.textContent = `Error: ${error}`;
-                    if (errorDescription) {
-                        errorDetailsEl.textContent = decodeURIComponent(errorDescription);
-                    }
-
-                    loadingEl.style.display = 'none';
-                    errorEl.style.display = 'block';
-                    return;
-                }
-
-                // Handle the OAuth callback
-                const session = await handleOAuthCallback(urlParams);
-
-                // Store the session
-                storeOAuthSession(session);
-
-                // Show success message
-                loadingEl.style.display = 'none';
-                successEl.style.display = 'block';
-
-                // Redirect to home page after a short delay
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 2000);
-
-            } catch (error) {
-                console.error('OAuth callback error:', error);
-
-                errorMessageEl.textContent = error.message || 'An unknown error occurred';
-                errorDetailsEl.textContent = error.stack || '';
-
-                loadingEl.style.display = 'none';
-                errorEl.style.display = 'block';
-            }
-        }
-
-        // Start processing when page loads
-        processCallback();
+        // Redirect to the standalone callback page
+        window.location.href = standaloneUrl;
     </script>
 </body>
 </html>

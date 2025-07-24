@@ -106,13 +106,13 @@
 					<fieldset>
 						<legend class="block text-sm font-medium text-gray-700 mb-2">Sign in with:</legend>
 						<div class="space-y-2">
-							<label class="flex items-center opacity-50 cursor-not-allowed">
-								<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" disabled />
-								<span class="text-sm">OAuth (Coming Soon)</span>
+							<label class="flex items-center">
+								<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" />
+								<span class="text-sm">OAuth (Recommended)</span>
 							</label>
 							<label class="flex items-center">
 								<input type="radio" bind:group={authMethod} value="app_password" class="mr-2" />
-								<span class="text-sm">App Password (Recommended)</span>
+								<span class="text-sm">App Password (Legacy)</span>
 							</label>
 						</div>
 					</fieldset>

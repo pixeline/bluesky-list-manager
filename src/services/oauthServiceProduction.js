@@ -1,4 +1,4 @@
-import * as jose from 'jose';
+// Production-ready OAuth service without external dependencies
 
 // Types for our auth state
 const AUTH_STORAGE_KEY = 'bluesky_oauth_session';
@@ -49,12 +49,12 @@ export async function generateDpopKeypair() {
             name: 'ECDSA',
             namedCurve: 'P-256' // ES256 required by Bluesky
         },
-        true, // Make keys extractable so we can export them for jose
+        true, // Make keys extractable so we can export them
         ['sign', 'verify'] // can be used for signing and verification
     );
 }
 
-// Create a DPoP JWT for token requests using the jose library
+// Create a DPoP JWT for token requests using WebCrypto
 export async function createDpopJwt(
     keypair,
     method,
@@ -88,27 +88,49 @@ export async function createDpopJwt(
             payload.ath = base64UrlEncode(hash);
         }
 
-        // Use jose to create a properly formatted JWT
-        const privateKey = await jose.importJWK(
-            await crypto.subtle.exportKey('jwk', keypair.privateKey),
-            'ES256'
+        // Create header
+        const header = {
+            alg: 'ES256',
+            typ: 'dpop+jwt',
+            jwk: {
+                kty: publicKeyJwk.kty,
+                crv: publicKeyJwk.crv,
+                x: publicKeyJwk.x,
+                y: publicKeyJwk.y
+            }
+        };
+
+        // Encode header and payload
+        const headerB64 = btoa(JSON.stringify(header))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+        const payloadB64 = btoa(JSON.stringify(payload))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+        // Create the data to sign
+        const dataToSign = `${headerB64}.${payloadB64}`;
+        const encoder = new TextEncoder();
+        const data = encoder.encode(dataToSign);
+
+        // Sign the data
+        const signature = await crypto.subtle.sign(
+            {
+                name: 'ECDSA',
+                hash: { name: 'SHA-256' }
+            },
+            keypair.privateKey,
+            data
         );
 
-        // Create a signed JWT with the jose library
-        const dpopJwt = await new jose.SignJWT(payload)
-            .setProtectedHeader({
-                alg: 'ES256',
-                typ: 'dpop+jwt',
-                jwk: {
-                    kty: publicKeyJwk.kty,
-                    crv: publicKeyJwk.crv,
-                    x: publicKeyJwk.x,
-                    y: publicKeyJwk.y
-                }
-            })
-            .sign(privateKey);
+        // Encode the signature
+        const signatureB64 = base64UrlEncode(signature);
 
-        return dpopJwt;
+        // Return the complete JWT
+        return `${dataToSign}.${signatureB64}`;
+
     } catch (error) {
         console.error('Error creating DPoP JWT:', error);
         throw error;
@@ -138,7 +160,8 @@ export async function startOAuthFlow(serverUrl = 'https://bsky.social') {
         const clientId = isLocalhost
             ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
             : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
-                // Handle subdirectory structure for redirect URI
+
+        // Handle subdirectory structure for redirect URI
         const path = window.location.pathname;
         const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
         // For localhost, don't include the basePath since it's served from root
@@ -207,7 +230,7 @@ export async function handleOAuthCallback(queryParams) {
             // For localhost, don't include the basePath since it's served from root
             const redirectUri = isLocalhost
                 ? `${window.location.origin}/oauth-callback.html`
-                : `${window.location.origin}${basePath}/oauth-callback-standalone.html`;
+                : `${window.location.origin}${basePath}/oauth-callback.html`;
 
             const initialDpopJwt = await createDpopJwt(
                 dpopKeypair,
@@ -252,7 +275,7 @@ export async function handleOAuthCallback(queryParams) {
             ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
             : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
 
-                // Calculate basePath for redirect URI
+        // Calculate basePath for redirect URI
         const path = window.location.pathname;
         const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
         // For localhost, don't include the basePath since it's served from root

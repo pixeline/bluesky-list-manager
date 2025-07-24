@@ -1,5 +1,5 @@
 {
-    "client_id": "https://pixeline.be/bluesky-list-manager/client-metadata.json",
+    "client_id": "https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json",
     "client_name": "Bluesky List Manager",
     "client_uri": "https://pixeline.be/bluesky-list-manager",
     "logo_uri": "https://pixeline.be/bluesky-list-manager/static/Bluesky_Logo.svg",
@@ -11,8 +11,7 @@
         "code"
     ],
     "redirect_uris": [
-        "https://pixeline.be/bluesky-list-manager/oauth-callback-standalone.html",
-        "http://localhost:5174/oauth-callback.html"
+        "https://pixeline.be/bluesky-list-manager/oauth-callback-standalone.html"
     ],
     "token_endpoint_auth_method": "none",
     "code_challenge_method": "S256",

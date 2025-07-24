@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Test - Bluesky List Manager</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .info {
+            background-color: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: left;
+        }
+
+        .success {
+            color: #059669;
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .error {
+            color: #dc2626;
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin: 0.5rem;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .details {
+            background-color: #f8fafc;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            text-align: left;
+            overflow-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OAuth Test</h1>
+        <p>Test the Bluesky OAuth integration</p>
+
+        <div id="info" class="info">
+            <h3>Current Configuration:</h3>
+            <p><strong>Hostname:</strong> <span id="hostname"></span></p>
+            <p><strong>Origin:</strong> <span id="origin"></span></p>
+            <p><strong>Pathname:</strong> <span id="pathname"></span></p>
+            <p><strong>Client ID:</strong> <span id="clientId"></span></p>
+            <p><strong>Redirect URI:</strong> <span id="redirectUri"></span></p>
+        </div>
+
+        <div id="status"></div>
+
+        <button id="testOAuth" onclick="testOAuth()">Test OAuth Flow</button>
+        <button id="checkSession" onclick="checkSession()">Check Session</button>
+        <button id="clearSession" onclick="clearSession()">Clear Session</button>
+        <button onclick="goHome()">Go Home</button>
+        <button onclick="window.location.href='test-oauth-production.html'">Production Test Page</button>
+    </div>
+
+    <script type="module">
+        // Determine the correct import path based on the current location
+        const path = window.location.pathname;
+        const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
+        const importPath = basePath ? `${basePath}/src/services/oauthService.js` : './src/services/oauthService.js';
+
+        let oauthService = null;
+
+        // Load OAuth service
+        import(importPath).then((service) => {
+            oauthService = service;
+            updateInfo();
+        }).catch(error => {
+            console.error('Failed to load OAuth service:', error);
+            document.getElementById('status').innerHTML = `
+                <div class="error">
+                    <p>Failed to load OAuth service: ${error.message}</p>
+                    <p><strong>Note:</strong> This test page is designed for development use. In production, the OAuth functionality is integrated into the main application.</p>
+                    <p>To test OAuth in production, use the main app at: <a href="/" style="color: #3b82f6;">Main Application</a></p>
+                </div>
+            `;
+        });
+
+        function updateInfo() {
+            const hostname = window.location.hostname;
+            const origin = window.location.origin;
+            const pathname = window.location.pathname;
+            const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+            const clientId = isLocalhost
+                ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
+                : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+            const redirectUri = isLocalhost
+                ? `${origin}/oauth-callback.html`
+                : `${origin}${basePath}/oauth-callback.html`;
+
+            document.getElementById('hostname').textContent = hostname;
+            document.getElementById('origin').textContent = origin;
+            document.getElementById('pathname').textContent = pathname;
+            document.getElementById('clientId').textContent = clientId;
+            document.getElementById('redirectUri').textContent = redirectUri;
+        }
+
+        window.testOAuth = async function() {
+            if (!oauthService) {
+                document.getElementById('status').innerHTML = `
+                    <div class="error">
+                        <p>OAuth service not loaded</p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                document.getElementById('status').innerHTML = `
+                    <div class="info">
+                        <p>Starting OAuth flow...</p>
+                    </div>
+                `;
+
+                await oauthService.startOAuthFlow();
+            } catch (error) {
+                document.getElementById('status').innerHTML = `
+                    <div class="error">
+                        <p>OAuth flow failed: ${error.message}</p>
+                    </div>
+                `;
+            }
+        };
+
+        window.checkSession = function() {
+            if (!oauthService) {
+                document.getElementById('status').innerHTML = `
+                    <div class="error">
+                        <p>OAuth service not loaded</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const session = oauthService.getStoredOAuthSession();
+            if (session) {
+                document.getElementById('status').innerHTML = `
+                    <div class="success">
+                        <p>OAuth session found!</p>
+                        <div class="details">
+                            <p><strong>Access Token:</strong> ${session.accessToken ? 'Present' : 'Missing'}</p>
+                            <p><strong>Refresh Token:</strong> ${session.refreshToken ? 'Present' : 'Missing'}</p>
+                            <p><strong>Subject:</strong> ${session.sub || 'Missing'}</p>
+                            <p><strong>Timestamp:</strong> ${session.timestamp ? new Date(session.timestamp).toLocaleString() : 'Missing'}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('status').innerHTML = `
+                    <div class="info">
+                        <p>No OAuth session found</p>
+                    </div>
+                `;
+            }
+        };
+
+        window.clearSession = function() {
+            if (!oauthService) {
+                document.getElementById('status').innerHTML = `
+                    <div class="error">
+                        <p>OAuth service not loaded</p>
+                    </div>
+                `;
+                return;
+            }
+
+            oauthService.clearOAuthSession();
+            document.getElementById('status').innerHTML = `
+                <div class="success">
+                    <p>OAuth session cleared</p>
+                </div>
+            `;
+        };
+
+        window.goHome = function() {
+            const path = window.location.pathname;
+            const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
+            window.location.href = basePath + '/';
+        };
+
+        // Check for OAuth callback parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code') || urlParams.has('error')) {
+            document.getElementById('status').innerHTML = `
+                <div class="info">
+                    <p>OAuth callback detected. Check the console for details.</p>
+                    <p><strong>Code:</strong> ${urlParams.get('code') ? 'Present' : 'Missing'}</p>
+                    <p><strong>Error:</strong> ${urlParams.get('error') || 'None'}</p>
+                    <p><strong>State:</strong> ${urlParams.get('state') || 'Missing'}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

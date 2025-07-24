@@ -84,17 +84,20 @@
 		return 'New candidate';
 	}
 
-	// Clear search results when selected list changes (but not on initial load)
+	// Clear search results and query when selected list changes (but not on initial load)
 	let previousListUri = null;
 	$: if (
 		$listStore.selectedList &&
 		previousListUri &&
 		previousListUri !== $listStore.selectedList.uri
 	) {
+		// Reset search form and results when list changes
+		searchQuery = '';
 		searchResults = [];
 		selectedProfiles.clear();
 		currentCursor = null;
 		hasNextPage = false;
+		error = '';
 	}
 	$: if ($listStore.selectedList) {
 		previousListUri = $listStore.selectedList.uri;

@@ -13,7 +13,9 @@
 	}
 </script>
 
-<div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto">
+<div
+	class="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto relative z-100"
+>
 	<div class="text-center mb-8">
 		<div class="text-6xl mb-4">
 			<img

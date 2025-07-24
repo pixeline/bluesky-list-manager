@@ -6,6 +6,7 @@
 	import ListManager from './components/ListManager.svelte';
 	import LoadingOverlay from './components/LoadingOverlay.svelte';
 	import ConfigTest from './components/ConfigTest.svelte';
+	import ButterflyBackground from './components/ButterflyBackground.svelte';
 	import { blueskyStore } from './stores/blueskyStore.js';
 	import { listStore } from './stores/listStore.js';
 	import config from './config.js';
@@ -34,6 +35,9 @@
 </script>
 
 <main class="min-h-screen bg-gray-50">
+	<!-- Butterfly Background -->
+	<ButterflyBackground />
+
 	{#if currentView !== 'auth'}
 		<Header />
 	{/if}

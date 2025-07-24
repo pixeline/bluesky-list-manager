@@ -74,17 +74,19 @@
 <!-- Modal Backdrop -->
 <div
 	class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-	on:click={handleBackdropClick}
-	on:keydown={(e) => e.key === 'Escape' && handleClose()}
 	role="dialog"
 	aria-modal="true"
 	tabindex="-1"
+	on:keydown={(e) => e.key === 'Escape' && handleClose()}
 >
-	<div
-		class="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
-		on:click|stopPropagation
-		role="document"
-	>
+	<!-- Invisible backdrop button for accessibility -->
+	<button
+		class="absolute inset-0 w-full h-full bg-transparent border-0 cursor-default"
+		on:click={handleBackdropClick}
+		aria-label="Close modal"
+		type="button"
+	></button>
+	<div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative z-10" role="document">
 		<div class="flex items-center justify-between mb-4">
 			<h2 class="text-xl font-semibold text-slate-800">Sign in to Bluesky</h2>
 			<button on:click={handleClose} class="text-gray-400 hover:text-gray-600 text-2xl font-bold">
@@ -96,17 +98,19 @@
 			<div class="space-y-4">
 				<!-- Authentication Method Selection -->
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">Sign in with:</label>
-					<div class="space-y-2">
-						<label class="flex items-center opacity-50 cursor-not-allowed">
-							<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" disabled />
-							<span class="text-sm">OAuth (Coming Soon)</span>
-						</label>
-						<label class="flex items-center">
-							<input type="radio" bind:group={authMethod} value="app_password" class="mr-2" />
-							<span class="text-sm">App Password (Recommended)</span>
-						</label>
-					</div>
+					<fieldset>
+						<legend class="block text-sm font-medium text-gray-700 mb-2">Sign in with:</legend>
+						<div class="space-y-2">
+							<label class="flex items-center opacity-50 cursor-not-allowed">
+								<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" disabled />
+								<span class="text-sm">OAuth (Coming Soon)</span>
+							</label>
+							<label class="flex items-center">
+								<input type="radio" bind:group={authMethod} value="app_password" class="mr-2" />
+								<span class="text-sm">App Password (Recommended)</span>
+							</label>
+						</div>
+					</fieldset>
 				</div>
 
 				{#if authMethod === 'oauth'}

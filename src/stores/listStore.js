@@ -121,6 +121,48 @@ function createListStore() {
 
               return { ...state, listMembers: newListMembers };
             });
+
+            // Update member count in selected list and user lists
+            update(state => {
+              console.log('Updating member count for DID:', did);
+              console.log('Current selectedList:', state.selectedList);
+              console.log('Current userLists:', state.userLists);
+
+              // Always increment the count when a profile is successfully added
+              console.log('Incrementing member count for successfully added profile');
+
+              // Update selected list member count
+              const updatedSelectedList = state.selectedList ? {
+                ...state.selectedList,
+                listItemCount: (state.selectedList.listItemCount || 0) + 1
+              } : null;
+
+              // Update user lists member count for the current list
+              const updatedUserLists = state.userLists.map(list => {
+                if (list.uri === state.selectedList?.uri) {
+                  return {
+                    ...list,
+                    memberCount: (list.memberCount || 0) + 1
+                  };
+                }
+                return list;
+              });
+
+              console.log('Updated selectedList:', updatedSelectedList);
+              console.log('Updated userLists:', updatedUserLists);
+
+              // Update localStorage for the selected list and user lists
+              if (updatedSelectedList) {
+                localStorage.setItem(STORAGE_KEYS.SELECTED_LIST, JSON.stringify(updatedSelectedList));
+              }
+              localStorage.setItem(STORAGE_KEYS.LISTS, JSON.stringify(updatedUserLists));
+
+              return {
+                ...state,
+                selectedList: updatedSelectedList,
+                userLists: updatedUserLists
+              };
+            });
           }
         } catch (error) {
           console.error('Failed to fetch profile data:', error);
@@ -131,12 +173,51 @@ function createListStore() {
               : [did, ...state.listMembers];
             return { ...state, listMembers: newListMembers };
           });
+
+          // Update member count even if profile fetch fails
+          update(state => {
+            console.log('Updating member count for DID (error case):', did);
+
+            // Always increment the count when a profile is added (even if profile fetch fails)
+            console.log('Incrementing member count for profile (error case)');
+
+            // Update selected list member count
+            const updatedSelectedList = state.selectedList ? {
+              ...state.selectedList,
+              listItemCount: (state.selectedList.listItemCount || 0) + 1
+            } : null;
+
+            // Update user lists member count for the current list
+            const updatedUserLists = state.userLists.map(list => {
+              if (list.uri === state.selectedList?.uri) {
+                return {
+                  ...list,
+                  memberCount: (list.memberCount || 0) + 1
+                };
+              }
+              return list;
+            });
+
+            // Update localStorage for the selected list and user lists
+            if (updatedSelectedList) {
+              localStorage.setItem(STORAGE_KEYS.SELECTED_LIST, JSON.stringify(updatedSelectedList));
+            }
+            localStorage.setItem(STORAGE_KEYS.LISTS, JSON.stringify(updatedUserLists));
+
+            return {
+              ...state,
+              selectedList: updatedSelectedList,
+              userLists: updatedUserLists
+            };
+          });
         } finally {
           isUpdating = false;
         }
         resolve();
       });
     },
+
+
     refreshListMembers: () => {
       update(state => ({ ...state, refreshTrigger: Date.now() }));
     },

@@ -30,6 +30,15 @@
 	// Debug: Watch for profile changes
 	$: console.log('Profile count changed:', $listStore.listMemberProfiles.length);
 
+	// Watch for changes in selected list member count
+	$: if ($listStore.selectedList?.listItemCount !== totalMemberCount) {
+		console.log('ListManager: Member count changed in store');
+		console.log('New listItemCount:', $listStore.selectedList?.listItemCount);
+		console.log('Current totalMemberCount:', totalMemberCount);
+		totalMemberCount = $listStore.selectedList?.listItemCount || 0;
+		totalPages = Math.ceil(totalMemberCount / membersPerPage);
+	}
+
 	// Watch for changes in selected list
 	let lastLoadedListUri = null;
 	$: if (
@@ -186,6 +195,8 @@
 			}
 		}
 
+		// The reactive statement will handle updating totalMemberCount and totalPages
+
 		// Clear selections
 		selectedProfiles.clear();
 		selectedProfiles = selectedProfiles; // Trigger reactivity
@@ -275,7 +286,7 @@
 			class="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col"
 		>
 			<div class="p-6 border-b border-gray-200">
-				<h3 class="text-lg font-semibold text-slate-800 mb-2">Latest List Members</h3>
+				<h3 class="text-lg font-semibold text-slate-800 mb-2">Latest list members</h3>
 				<p class="text-sm text-slate-600">
 					Showing {isLoadingMembersPage ? '...' : $listStore.listMemberProfiles.length} of {totalMemberCount}
 					total members

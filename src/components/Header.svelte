@@ -21,6 +21,12 @@
 		loadUserLists();
 	}
 
+	// Watch for changes in user lists to update the dropdown
+	$: if ($listStore.userLists.length > 0) {
+		console.log('Header: userLists updated:', $listStore.userLists);
+		// This will trigger reactivity in the dropdown when userLists changes
+	}
+
 	async function loadUserLists() {
 		if (!$blueskyStore.session) return;
 
@@ -113,9 +119,7 @@
 							{:else}
 								{#each $listStore.userLists as list}
 									<option value={list.uri}>
-										{list.name} ({$listStore.selectedList?.uri === list.uri
-											? $listStore.listMembers.length
-											: list.memberCount} members)
+										{list.name} ({list.memberCount.toLocaleString()} members)
 									</option>
 								{/each}
 							{/if}

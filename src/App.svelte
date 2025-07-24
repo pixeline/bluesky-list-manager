@@ -39,11 +39,6 @@
 	{/if}
 
 	<div class="max-w-6xl mx-auto p-6">
-		<!-- Configuration test (development only) -->
-		{#if config.isDevelopment}
-			<ConfigTest />
-		{/if}
-
 		{#if currentView === 'auth'}
 			<AuthInstructions />
 		{:else if currentView === 'list-selector'}

@@ -2,9 +2,6 @@
 const isProduction = import.meta.env.PROD || import.meta.env.MODE === 'production';
 
 const config = {
-  // API base path - works for both local development and production subfolder
-  apiBase: isProduction ? './api' : '/api',
-
   // Static assets base path - relative to current location
   staticBase: 'static',
 
@@ -17,12 +14,15 @@ const config = {
 
   // Get the current base path for assets
   getAssetPath: (path) => {
+    // Remove 'static/' prefix since Vite serves static assets from root
+    const cleanPath = path.replace('static/', '');
+
     // In production (subfolder), we need to use relative paths
     // In development, absolute paths work fine
     if (isProduction) {
-      return `./${path}`;
+      return `./${cleanPath}`;
     }
-    return `/${path}`;
+    return `/${cleanPath}`;
   }
 };
 

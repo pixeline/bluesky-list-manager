@@ -1,0 +1,19 @@
+{
+    "client_id": "https://bluesky-list-manager.vercel.app/client-metadata.json",
+    "client_name": "Bluesky Search for Belgians",
+    "client_uri": "https://bluesky-list-manager.vercel.app",
+    "logo_uri": "https://bluesky-list-manager.vercel.app/static/Bluesky_Logo.svg",
+    "scope": "atproto transition:generic",
+    "grant_types": [
+        "authorization_code"
+    ],
+    "response_types": [
+        "code"
+    ],
+    "redirect_uris": [
+        "https://bluesky-list-manager.vercel.app/oauth-callback.html",
+        "http://localhost:5173/oauth-callback.html"
+    ],
+    "token_endpoint_auth_method": "none",
+    "code_challenge_method": "S256"
+}

@@ -17,6 +17,8 @@
 	let isLoadingMembersPage = false;
 	let isCurrentlyLoadingMembers = false; // Prevent multiple simultaneous loads
 	let totalPages = 0;
+	let pageCursors = new Map(); // Store cursors for each page
+	let totalMemberCount = 0;
 
 	// Component will react to list changes automatically
 
@@ -48,23 +50,35 @@
 		isLoadingMembers = true;
 		membersError = '';
 		currentMembersPage = 1; // Reset to first page
+		pageCursors.clear(); // Clear previous cursors
 
 		try {
-			const memberDids = await blueskyApi.getListMembers(
+			// Get list info first to get total count and metadata
+			const listInfo = await blueskyApi.getListInfo(
 				$blueskyStore.session,
-				$listStore.selectedList.uri
+				$listStore.selectedList.uri,
+				$blueskyStore.authType
 			);
-			console.log('Raw member DIDs:', memberDids);
-			listStore.setListMembers(memberDids);
 
-			// Calculate total pages
-			totalPages = Math.ceil(memberDids.length / membersPerPage);
-			console.log('Total pages:', totalPages);
+			// Update the selected list with metadata from the API
+			const updatedList = {
+				...$listStore.selectedList,
+				name: listInfo.name,
+				description: listInfo.description,
+				createdAt: listInfo.createdAt,
+				listItemCount: listInfo.listItemCount
+			};
+			listStore.setSelectedList(updatedList);
 
-			// Load first page of profiles
+			// Get total count for pagination
+			totalMemberCount = listInfo.listItemCount || 0;
+			totalPages = Math.ceil(totalMemberCount / membersPerPage);
+			console.log('Total pages:', totalPages, 'Total count:', totalMemberCount);
+
+			// Load first page of members
 			await loadMembersPage(1);
 
-			// Only clear loading overlay after both members count and first page are loaded
+			// Only clear loading overlay after both list info and first page are loaded
 			listStore.setListLoading(false);
 		} catch (err) {
 			console.error('Error loading list members:', err);
@@ -85,34 +99,47 @@
 	}
 
 	async function loadMembersPage(page) {
-		if (!$blueskyStore.session || !$listStore.selectedList || !$listStore.listMembers.length)
-			return;
+		if (!$blueskyStore.session || !$listStore.selectedList) return;
 
 		isLoadingMembersPage = true;
 		currentMembersPage = page;
 
 		try {
-			const startIndex = (page - 1) * membersPerPage;
-			const endIndex = startIndex + membersPerPage;
-			const pageDids = $listStore.listMembers.slice(startIndex, endIndex);
+			// Get cursor for this page
+			let cursor = pageCursors.get(page - 1); // Previous page's cursor
 
-			console.log(
-				`Loading page ${page}: DIDs ${startIndex + 1}-${Math.min(endIndex, $listStore.listMembers.length)}`
+			// Get members for this page
+			const result = await blueskyApi.getListMembers(
+				$blueskyStore.session,
+				$listStore.selectedList.uri,
+				$blueskyStore.authType,
+				membersPerPage,
+				cursor
 			);
-			console.log('Page DIDs:', pageDids);
 
-			const profiles = await blueskyApi.getProfiles($blueskyStore.session, pageDids);
-			console.log(`Fetched ${profiles.length} profiles for page ${page}`);
-			console.log('Profiles received:', profiles);
+			console.log(`Fetched ${result.members.length} members for page ${page}`);
+			console.log('Members received:', result.members);
 
-			if (profiles.length === 0) {
-				console.warn('No profiles returned from API for page', page);
-				membersError = 'No profile data received from API';
+			// Store the cursor for the next page
+			if (result.cursor) {
+				pageCursors.set(page, result.cursor);
+			}
+
+			if (result.members.length === 0) {
+				console.warn('No members returned from API for page', page);
+				membersError = 'No member data received from API';
 			} else {
 				membersError = ''; // Clear any previous errors
 			}
 
+			// Use profile data directly from the API response (no need for separate profile requests)
+			const profiles = result.profiles || [];
+
+			console.log(`Using ${profiles.length} profiles from API response for page ${page}`);
 			console.log('Setting profiles in store:', profiles.length);
+
+			// Store both the member DIDs and profiles for the current page
+			listStore.setListMembers(result.members);
 			listStore.setListMemberProfiles(profiles);
 			console.log('Profiles set in store, current count:', $listStore.listMemberProfiles.length);
 		} catch (error) {
@@ -144,11 +171,16 @@
 
 		for (const did of profilesToAdd) {
 			try {
-				await blueskyApi.addToList($blueskyStore.session, did, $listStore.selectedList.uri);
+				await blueskyApi.addToList(
+					$blueskyStore.session,
+					did,
+					$listStore.selectedList.uri,
+					$blueskyStore.authType
+				);
 				addResults.success.push(did);
 
 				// Optimized: Add to local state immediately with profile data
-				await listStore.fetchAndAddProfile($blueskyStore.session, did);
+				await listStore.fetchAndAddProfile($blueskyStore.session, did, $blueskyStore.authType);
 			} catch (err) {
 				addResults.errors.push({ did, error: err.message });
 			}
@@ -165,18 +197,14 @@
 		return $listStore.listMembers.includes(profileDid);
 	}
 
-	function getTotalPages() {
-		return Math.ceil($listStore.listMembers.length / membersPerPage);
-	}
-
 	async function goToPage(page) {
-		if (page >= 1 && page <= getTotalPages()) {
+		if (page >= 1 && page <= totalPages) {
 			await loadMembersPage(page);
 		}
 	}
 
 	async function nextPage() {
-		if (currentMembersPage < getTotalPages()) {
+		if (currentMembersPage < totalPages) {
 			await loadMembersPage(currentMembersPage + 1);
 		}
 	}
@@ -249,8 +277,8 @@
 			<div class="p-6 border-b border-gray-200">
 				<h3 class="text-lg font-semibold text-slate-800 mb-2">Latest List Members</h3>
 				<p class="text-sm text-slate-600">
-					Showing {isLoadingMembersPage ? '...' : $listStore.listMemberProfiles.length} of {$listStore
-						.listMembers.length} total members
+					Showing {isLoadingMembersPage ? '...' : $listStore.listMemberProfiles.length} of {totalMemberCount}
+					total members
 				</p>
 			</div>
 
@@ -390,11 +418,11 @@
 						</div>
 
 						<!-- Pagination Controls -->
-						{#if $listStore.listMembers.length > membersPerPage}
+						{#if totalPages > 1}
 							<div class="mt-6 pt-4 border-t border-gray-200">
 								<div class="flex items-center justify-between">
 									<div class="text-sm text-gray-600">
-										Page {currentMembersPage} of {getTotalPages()}
+										Page {currentMembersPage} of {totalPages} ({totalMemberCount} total members)
 									</div>
 									<div class="flex items-center space-x-2">
 										<button
@@ -410,14 +438,14 @@
 
 										<!-- Page Numbers -->
 										<div class="flex items-center space-x-1">
-											{#each Array.from({ length: Math.min(5, getTotalPages()) }, (_, i) => {
+											{#each Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
 												let pageNum;
-												if (getTotalPages() <= 5) {
+												if (totalPages <= 5) {
 													pageNum = i + 1;
 												} else if (currentMembersPage <= 3) {
 													pageNum = i + 1;
-												} else if (currentMembersPage >= getTotalPages() - 2) {
-													pageNum = getTotalPages() - 4 + i;
+												} else if (currentMembersPage >= totalPages - 2) {
+													pageNum = totalPages - 4 + i;
 												} else {
 													pageNum = currentMembersPage - 2 + i;
 												}
@@ -438,11 +466,11 @@
 
 										<button
 											on:click={nextPage}
-											disabled={currentMembersPage === getTotalPages() || isLoadingMembersPage}
+											disabled={currentMembersPage === totalPages || isLoadingMembersPage}
 											class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
 										>
 											Next
-											{#if isLoadingMembersPage && currentMembersPage < getTotalPages()}
+											{#if isLoadingMembersPage && currentMembersPage < totalPages}
 												<span class="loading-spinner ml-1"></span>
 											{/if}
 										</button>

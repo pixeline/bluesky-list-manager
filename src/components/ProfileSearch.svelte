@@ -25,7 +25,11 @@
 		hasNextPage = false;
 
 		try {
-			const result = await blueskyApi.searchProfiles($blueskyStore.session, searchQuery, 25);
+			const result = await blueskyApi.searchProfiles(
+				$blueskyStore.session,
+				searchQuery,
+				$blueskyStore.authType
+			);
 			searchResults = result.actors || [];
 			currentCursor = result.cursor;
 			hasNextPage = !!result.cursor;
@@ -46,6 +50,7 @@
 			const result = await blueskyApi.searchProfiles(
 				$blueskyStore.session,
 				searchQuery,
+				$blueskyStore.authType,
 				25,
 				currentCursor
 			);
@@ -69,6 +74,7 @@
 	}
 
 	function isProfileInList(profileDid) {
+		// Check if profile is in the current page of list members
 		return $listStore.listMembers.includes(profileDid);
 	}
 
@@ -79,20 +85,25 @@
 		return 'New candidate';
 	}
 
-	// Clear search results when selected list changes (but not on initial load)
+	// Clear search results and query when selected list changes
 	let previousListUri = null;
-	$: if (
-		$listStore.selectedList &&
-		previousListUri &&
-		previousListUri !== $listStore.selectedList.uri
-	) {
-		searchResults = [];
-		selectedProfiles.clear();
-		currentCursor = null;
-		hasNextPage = false;
-	}
+	let isInitialLoad = true;
+
 	$: if ($listStore.selectedList) {
+		// Only reset if this is not the initial load and the list has actually changed
+		if (!isInitialLoad && previousListUri && previousListUri !== $listStore.selectedList.uri) {
+			// Reset search form and results when list changes
+			searchQuery = '';
+			searchResults = [];
+			selectedProfiles.clear();
+			currentCursor = null;
+			hasNextPage = false;
+			error = '';
+		}
+
+		// Update tracking variables
 		previousListUri = $listStore.selectedList.uri;
+		isInitialLoad = false;
 	}
 
 	// Reactive status tags that update when list members change

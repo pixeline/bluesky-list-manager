@@ -10,7 +10,7 @@ function createListStore() {
   const { subscribe, set, update } = writable({
     selectedList: null,
     userLists: [],
-    listMembers: [],
+    listMembers: [], // This will now store the current page members only
     listMemberProfiles: [],
     isLoading: false,
     error: null
@@ -43,6 +43,15 @@ function createListStore() {
     },
     setListMembers: (members) => {
       update(state => ({ ...state, listMembers: members }));
+    },
+    // New method: Check if a profile is in the current list (current page only)
+    isProfileInCurrentList: (profileDid) => {
+      let result = false;
+      update(state => {
+        result = state.listMembers.includes(profileDid);
+        return state;
+      });
+      return result;
     },
     setListMemberProfiles: (profiles) => {
       update(state => ({ ...state, listMemberProfiles: profiles }));
@@ -78,22 +87,18 @@ function createListStore() {
       });
     },
     // New method: Fetch and add profile data for a single DID
-    fetchAndAddProfile: (session, did) => {
+    fetchAndAddProfile: (session, did, authType = 'app_password') => {
+      if (isUpdating) return Promise.resolve();
+      isUpdating = true;
+
       return new Promise(async (resolve) => {
-        if (isUpdating) {
-          resolve();
-          return;
-        }
-
-        isUpdating = true;
-
         try {
-          const profiles = await blueskyApi.getProfiles(session, [did]);
+          const profiles = await blueskyApi.getProfiles(session, [did], authType);
           if (profiles.length > 0) {
             const profile = profiles[0];
 
             update(state => {
-              // Add to list members if not already present
+              // Add to list members if not already present (current page only)
               const newListMembers = state.listMembers.includes(did)
                 ? state.listMembers
                 : [did, ...state.listMembers];

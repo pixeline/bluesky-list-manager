@@ -28,7 +28,7 @@
 		listsError = '';
 
 		try {
-			const lists = await blueskyApi.getUserLists($blueskyStore.session);
+			const lists = await blueskyApi.getUserLists($blueskyStore.session, $blueskyStore.authType);
 
 			// Process the lists - they now come with listItemCount directly
 			const processedLists = lists

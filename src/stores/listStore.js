@@ -10,7 +10,7 @@ function createListStore() {
   const { subscribe, set, update } = writable({
     selectedList: null,
     userLists: [],
-    listMembers: [],
+    listMembers: [], // This will now store the current page members only
     listMemberProfiles: [],
     isLoading: false,
     error: null
@@ -43,6 +43,15 @@ function createListStore() {
     },
     setListMembers: (members) => {
       update(state => ({ ...state, listMembers: members }));
+    },
+    // New method: Check if a profile is in the current list (current page only)
+    isProfileInCurrentList: (profileDid) => {
+      let result = false;
+      update(state => {
+        result = state.listMembers.includes(profileDid);
+        return state;
+      });
+      return result;
     },
     setListMemberProfiles: (profiles) => {
       update(state => ({ ...state, listMemberProfiles: profiles }));
@@ -79,10 +88,7 @@ function createListStore() {
     },
     // New method: Fetch and add profile data for a single DID
     fetchAndAddProfile: (session, did, authType = 'app_password') => {
-      if (isUpdating) {
-        return Promise.resolve();
-      }
-
+      if (isUpdating) return Promise.resolve();
       isUpdating = true;
 
       return new Promise(async (resolve) => {
@@ -92,7 +98,7 @@ function createListStore() {
             const profile = profiles[0];
 
             update(state => {
-              // Add to list members if not already present
+              // Add to list members if not already present (current page only)
               const newListMembers = state.listMembers.includes(did)
                 ? state.listMembers
                 : [did, ...state.listMembers];

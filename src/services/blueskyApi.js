@@ -136,32 +136,33 @@ class BlueskyApi {
     return data.list;
   }
 
-  async getListMembers(session, listUri, authType = 'app_password') {
-    // Extract list owner DID from URI
-    const listParts = listUri.split('/');
-    const listOwnerDid = listParts[2];
+  async getListMembers(session, listUri, authType = 'app_password', limit = 25, cursor = null) {
+    // Use the proper Bluesky API endpoint for list members with pagination
+    let url = `app.bsky.graph.getList?list=${encodeURIComponent(listUri)}&limit=${limit}`;
+    if (cursor) {
+      url += `&cursor=${encodeURIComponent(cursor)}`;
+    }
 
-    let allMembers = [];
-    let cursor = null;
+    const data = await this.makeBlueskyRequest(url, session, authType);
 
-    do {
-      let url = `com.atproto.repo.listRecords?repo=${encodeURIComponent(listOwnerDid)}&collection=app.bsky.graph.listitem&limit=100`;
-      if (cursor) {
-        url += `&cursor=${encodeURIComponent(cursor)}`;
-      }
+    // Extract member DIDs and profile data from the response
+    // The items array is at the root level, not nested under list
+    const members = data.items || [];
+    const memberDids = members.map(item => item.subject.did);
+    const profiles = members.map(item => item.subject);
 
-      const data = await this.makeBlueskyRequest(url, session, authType);
+    return {
+      members: memberDids,
+      profiles: profiles,
+      cursor: data.cursor,
+      totalCount: data.list?.listItemCount || 0
+    };
+  }
 
-      // Filter records that belong to our target list
-      const listMembers = data.records
-        .filter(record => record.value.list === listUri)
-        .map(record => record.value.subject);
-
-      allMembers = allMembers.concat(listMembers);
-      cursor = data.cursor;
-    } while (cursor);
-
-    return allMembers;
+  async getListMembersCount(session, listUri, authType = 'app_password') {
+    // Get just the list info to get the total count without loading all members
+    const listInfo = await this.getListInfo(session, listUri, authType);
+    return listInfo.listItemCount || 0;
   }
 
   async getProfiles(session, dids, authType = 'app_password') {

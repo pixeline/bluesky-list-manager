@@ -74,6 +74,7 @@
 	}
 
 	function isProfileInList(profileDid) {
+		// Check if profile is in the current page of list members
 		return $listStore.listMembers.includes(profileDid);
 	}
 

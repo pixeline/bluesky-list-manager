@@ -1,24 +1,8 @@
 # Bluesky List Manager - Deployment Guide
 
-## 🚀 Quick Deployment
+## 🚀 Deployment
 
-### Option 1: Using Docker (Recommended)
-
-```bash
-# Clone or download the project
-cd bluesky-search-for-belgians
-
-# Make deployment script executable
-chmod +x deploy.sh
-
-# Run deployment script
-./deploy.sh
-
-# Start with Docker
-./start-docker.sh
-```
-
-### Option 2: Manual Deployment
+### Manual Deployment
 
 ```bash
 # Install dependencies
@@ -31,7 +15,7 @@ npm run build
 npm run dev
 ```
 
-### Option 3: Subfolder Deployment (Production)
+### Subfolder Deployment (Production)
 
 The application is configured to work in both local development and production subfolder environments:
 
@@ -89,7 +73,6 @@ NODE_ENV=production npm run build
   - `add-to-list.php` - Add profiles to lists
 
 ### Configuration
-- **Docker**: `docker-compose.yml` for containerized deployment
 - **Development**: `vite.config.js` and `svelte.config.js`
 - **Debugging**: `api/debug.txt` for API request/response logging
 
@@ -107,7 +90,7 @@ The application automatically detects and adapts to different deployment environ
 This is handled automatically by the configuration system in `src/config.js`.
 
 ### API Endpoints
-All API endpoints are relative to the domain:
+If using a PHP backend, endpoints are typically:
 - `/api/auth.php` - Authentication
 - `/api/lists.php` - Lists management
 - `/api/list-members.php` - Member counting
@@ -118,21 +101,9 @@ All API endpoints are relative to the domain:
 ### CORS Configuration
 APIs are configured to allow cross-origin requests from any domain for development flexibility.
 
-## 🐳 Docker Deployment
+## 🐳 Docker
 
-### Prerequisites
-- Docker and Docker Compose installed
-- Port 80 available (or modify `docker-compose.yml`)
-
-### Steps
-1. Run `./deploy.sh` to build the application
-2. Run `./start-docker.sh` to start containers
-3. Access at `http://localhost`
-
-### Container Structure
-- **Frontend**: Nginx serving built Svelte app
-- **Backend**: PHP-FPM serving API endpoints
-- **Database**: Not required (uses Bluesky APIs directly)
+Docker-based deployment was previously supported but is no longer maintained in this project. Use the manual/static deployment instructions above.
 
 ## 🔍 Troubleshooting
 

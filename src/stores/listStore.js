@@ -44,6 +44,24 @@ function createListStore() {
       localStorage.setItem(STORAGE_KEYS.LISTS, JSON.stringify(lists));
       update(state => ({ ...state, userLists: lists }));
     },
+    insertNewList: (newList, selectAfterInsert = true) => {
+      if (!newList || !newList.uri) return;
+      update(state => {
+        const updatedUserLists = [newList, ...state.userLists];
+        localStorage.setItem(STORAGE_KEYS.LISTS, JSON.stringify(updatedUserLists));
+        if (selectAfterInsert) {
+          localStorage.setItem(STORAGE_KEYS.SELECTED_LIST, JSON.stringify(newList));
+        }
+        return {
+          ...state,
+          userLists: updatedUserLists,
+          selectedList: selectAfterInsert ? newList : state.selectedList,
+          isLoadingList: !!selectAfterInsert
+        };
+      });
+      // Clear membership cache since selection likely changed
+      membershipCache.clear();
+    },
     setListMembers: (members) => {
       update(state => ({ ...state, listMembers: members }));
     },

@@ -137,8 +137,13 @@
 			}
 
 			if (result.members.length === 0) {
-				console.warn('No members returned from API for page', page);
-				membersError = 'No member data received from API';
+				// If the list has zero members in total, show the friendly empty state (no error)
+				if (totalMemberCount === 0) {
+					membersError = '';
+				} else {
+					console.warn('No members returned from API for page', page);
+					membersError = 'We couldn’t load members right now.';
+				}
 			} else {
 				membersError = ''; // Clear any previous errors
 			}
@@ -401,10 +406,10 @@
 				{:else if $listStore.listMembers.length === 0}
 					<div class="text-center py-12 flex-1 flex items-center justify-center">
 						<div>
-							<div class="text-4xl mb-4">📝</div>
-							<h3 class="text-lg font-semibold text-slate-800 mb-2">No Members Yet</h3>
+							<div class="text-4xl mb-4">🦋</div>
+							<h3 class="text-lg font-semibold text-slate-800 mb-2">This list is brand new</h3>
 							<p class="text-slate-600">
-								Your list is empty. Use the search to find and add profiles!
+								Use the search on the right to find profiles and start building your list.
 							</p>
 						</div>
 					</div>
@@ -514,7 +519,7 @@
 												<span class="text-gray-600 font-medium">?</span>
 											</div>
 											<div class="flex-1">
-												<div class="text-sm text-gray-600 font-mono text-xs break-all">
+												<div class="text-sm text-gray-600 font-mono break-all">
 													{memberDid}
 												</div>
 												<div class="text-xs text-gray-500">Member of list</div>
@@ -620,5 +625,6 @@
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+		line-clamp: 2;
 	}
 </style>

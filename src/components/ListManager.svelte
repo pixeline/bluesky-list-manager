@@ -7,42 +7,89 @@
 	import ProfileSearch from './ProfileSearch.svelte';
 	import ListStatistics from './ListStatistics.svelte';
 
-	let isLoadingMembers = true;
+	let isLoadingMembers = false;
 	let membersError = '';
 	let selectedProfiles = new Set();
 	let isAddingProfiles = false;
 	let addResults = { success: [], errors: [] };
+	let removingProfiles = new Set();
+	let removeResults = { success: [], errors: [] };
 	let currentMembersPage = 1;
 	const membersPerPage = 25;
 	let isLoadingMembersPage = false;
+	let isCurrentlyLoadingMembers = false; // Prevent multiple simultaneous loads
+	let totalPages = 0;
+	let pageCursors = new Map(); // Store cursors for each page
+	let totalMemberCount = 0;
 
-	onMount(async () => {
-		await loadListMembers();
-	});
+	// Component will react to list changes automatically
 
 	// Watch for refresh triggers from other components
 	$: if ($listStore.refreshTrigger) {
 		loadListMembers();
 	}
 
-	async function loadListMembers() {
-		if (!$listStore.selectedList || !$blueskyStore.session) return;
+	// Debug: Watch for profile changes
+	$: console.log('Profile count changed:', $listStore.listMemberProfiles.length);
 
+	// Watch for changes in selected list member count
+	$: if ($listStore.selectedList?.listItemCount !== totalMemberCount) {
+		console.log('ListManager: Member count changed in store');
+		console.log('New listItemCount:', $listStore.selectedList?.listItemCount);
+		console.log('Current totalMemberCount:', totalMemberCount);
+		totalMemberCount = $listStore.selectedList?.listItemCount || 0;
+		totalPages = Math.ceil(totalMemberCount / membersPerPage);
+	}
+
+	// Watch for changes in selected list
+	let lastLoadedListUri = null;
+	$: if (
+		$listStore.selectedList &&
+		$blueskyStore.session &&
+		!isCurrentlyLoadingMembers &&
+		lastLoadedListUri !== $listStore.selectedList.uri
+	) {
+		console.log('List changed, loading members for:', $listStore.selectedList.name);
+		lastLoadedListUri = $listStore.selectedList.uri;
+		loadListMembers();
+	}
+
+	async function loadListMembers() {
+		if (!$listStore.selectedList || !$blueskyStore.session || isCurrentlyLoadingMembers) return;
+
+		isCurrentlyLoadingMembers = true;
 		isLoadingMembers = true;
 		membersError = '';
+		currentMembersPage = 1; // Reset to first page
+		pageCursors.clear(); // Clear previous cursors
 
 		try {
-			const memberDids = await blueskyApi.getListMembers(
+			// Get list info first to get total count and metadata
+			const listInfo = await blueskyApi.getListInfo(
 				$blueskyStore.session,
-				$listStore.selectedList.uri
+				$listStore.selectedList.uri,
+				$blueskyStore.authType
 			);
-			console.log('Raw member DIDs:', memberDids);
-			listStore.setListMembers(memberDids);
 
-			// Load first page of profiles
+			// Update the selected list with metadata from the API
+			const updatedList = {
+				...$listStore.selectedList,
+				name: listInfo.name,
+				description: listInfo.description,
+				createdAt: listInfo.createdAt,
+				listItemCount: listInfo.listItemCount
+			};
+			listStore.setSelectedList(updatedList);
+
+			// Get total count for pagination
+			totalMemberCount = listInfo.listItemCount || 0;
+			totalPages = Math.ceil(totalMemberCount / membersPerPage);
+			console.log('Total pages:', totalPages, 'Total count:', totalMemberCount);
+
+			// Load first page of members
 			await loadMembersPage(1);
 
-			// Only clear loading overlay after both members count and first page are loaded
+			// Only clear loading overlay after both list info and first page are loaded
 			listStore.setListLoading(false);
 		} catch (err) {
 			console.error('Error loading list members:', err);
@@ -50,39 +97,62 @@
 			// Clear loading overlay even on error
 			listStore.setListLoading(false);
 		} finally {
+			console.log('Setting isLoadingMembers to false');
 			isLoadingMembers = false;
+			isCurrentlyLoadingMembers = false;
+			console.log(
+				'Final state - isLoadingMembers:',
+				isLoadingMembers,
+				'isCurrentlyLoadingMembers:',
+				isCurrentlyLoadingMembers
+			);
 		}
 	}
 
 	async function loadMembersPage(page) {
-		if (!$blueskyStore.session || !$listStore.selectedList || !$listStore.listMembers.length)
-			return;
+		if (!$blueskyStore.session || !$listStore.selectedList) return;
 
 		isLoadingMembersPage = true;
 		currentMembersPage = page;
 
 		try {
-			const startIndex = (page - 1) * membersPerPage;
-			const endIndex = startIndex + membersPerPage;
-			const pageDids = $listStore.listMembers.slice(startIndex, endIndex);
+			// Get cursor for this page
+			let cursor = pageCursors.get(page - 1); // Previous page's cursor
 
-			console.log(
-				`Loading page ${page}: DIDs ${startIndex + 1}-${Math.min(endIndex, $listStore.listMembers.length)}`
+			// Get members for this page
+			const result = await blueskyApi.getListMembers(
+				$blueskyStore.session,
+				$listStore.selectedList.uri,
+				$blueskyStore.authType,
+				membersPerPage,
+				cursor
 			);
-			console.log('Page DIDs:', pageDids);
 
-			const profiles = await blueskyApi.getProfiles($blueskyStore.session, pageDids);
-			console.log(`Fetched ${profiles.length} profiles for page ${page}`);
-			console.log('Profiles received:', profiles);
+			console.log(`Fetched ${result.members.length} members for page ${page}`);
+			console.log('Members received:', result.members);
 
-			if (profiles.length === 0) {
-				console.warn('No profiles returned from API for page', page);
-				membersError = 'No profile data received from API';
+			// Store the cursor for the next page
+			if (result.cursor) {
+				pageCursors.set(page, result.cursor);
+			}
+
+			if (result.members.length === 0) {
+				console.warn('No members returned from API for page', page);
+				membersError = 'No member data received from API';
 			} else {
 				membersError = ''; // Clear any previous errors
 			}
 
+			// Use profile data directly from the API response (no need for separate profile requests)
+			const profiles = result.profiles || [];
+
+			console.log(`Using ${profiles.length} profiles from API response for page ${page}`);
+			console.log('Setting profiles in store:', profiles.length);
+
+			// Store both the member DIDs and profiles for the current page
+			listStore.setListMembers(result.members);
 			listStore.setListMemberProfiles(profiles);
+			console.log('Profiles set in store, current count:', $listStore.listMemberProfiles.length);
 		} catch (error) {
 			console.error('Error loading members page:', error);
 			membersError = error.message || 'Failed to load page';
@@ -112,15 +182,22 @@
 
 		for (const did of profilesToAdd) {
 			try {
-				await blueskyApi.addToList($blueskyStore.session, did, $listStore.selectedList.uri);
+				await blueskyApi.addToList(
+					$blueskyStore.session,
+					did,
+					$listStore.selectedList.uri,
+					$blueskyStore.authType
+				);
 				addResults.success.push(did);
 
 				// Optimized: Add to local state immediately with profile data
-				await listStore.fetchAndAddProfile($blueskyStore.session, did);
+				await listStore.fetchAndAddProfile($blueskyStore.session, did, $blueskyStore.authType);
 			} catch (err) {
 				addResults.errors.push({ did, error: err.message });
 			}
 		}
+
+		// The reactive statement will handle updating totalMemberCount and totalPages
 
 		// Clear selections
 		selectedProfiles.clear();
@@ -129,22 +206,72 @@
 		isAddingProfiles = false;
 	}
 
+	async function removeFromList(profileDid) {
+		if (!profileDid || !$listStore.selectedList || !$blueskyStore.session) return;
+
+		removingProfiles.add(profileDid);
+
+		try {
+			await blueskyApi.removeFromList(
+				$blueskyStore.session,
+				profileDid,
+				$listStore.selectedList.uri,
+				$blueskyStore.authType
+			);
+
+			// Add to success results
+			removeResults.success.push(profileDid);
+
+			// Remove from current page display without triggering full reload
+			const remainingProfiles = $listStore.listMemberProfiles.filter(
+				(profile) => profile.did !== profileDid
+			);
+			listStore.setListMemberProfiles(remainingProfiles);
+
+			// Also remove from the list members array
+			const remainingMembers = $listStore.listMembers.filter((did) => did !== profileDid);
+			listStore.setListMembers(remainingMembers);
+
+			// Update member count locally without triggering reactive reload
+			totalMemberCount = Math.max(0, totalMemberCount - 1);
+			totalPages = Math.ceil(totalMemberCount / membersPerPage);
+
+			// Update user lists
+			const updatedUserLists = $listStore.userLists.map((list) => {
+				if (list.uri === $listStore.selectedList.uri) {
+					return {
+						...list,
+						memberCount: Math.max(0, (list.memberCount || 0) - 1)
+					};
+				}
+				return list;
+			});
+			listStore.setUserLists(updatedUserLists);
+		} catch (error) {
+			console.error('Failed to remove profile from list:', error);
+			removeResults.errors.push({ profileDid, error: error.message });
+		} finally {
+			removingProfiles.delete(profileDid);
+
+			// Clear results after 5 seconds
+			setTimeout(() => {
+				removeResults = { success: [], errors: [] };
+			}, 5000);
+		}
+	}
+
 	function isProfileInList(profileDid) {
 		return $listStore.listMembers.includes(profileDid);
 	}
 
-	function getTotalPages() {
-		return Math.ceil($listStore.listMembers.length / membersPerPage);
-	}
-
 	async function goToPage(page) {
-		if (page >= 1 && page <= getTotalPages()) {
+		if (page >= 1 && page <= totalPages) {
 			await loadMembersPage(page);
 		}
 	}
 
 	async function nextPage() {
-		if (currentMembersPage < getTotalPages()) {
+		if (currentMembersPage < totalPages) {
 			await loadMembersPage(currentMembersPage + 1);
 		}
 	}
@@ -156,13 +283,16 @@
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 relative z-100" id="list-manager">
 	<!-- List Statistics -->
 	<ListStatistics />
 
 	<!-- Action Bar -->
 	{#if selectedProfiles.size > 0}
-		<div class="sticky top-20 z-40 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+		<div
+			class="sticky top-20 z-40 bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+			id="action-bar"
+		>
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-3">
 					<button
@@ -207,22 +337,49 @@
 		</div>
 	{/if}
 
+	{#if removeResults.success.length > 0}
+		<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+			<p class="text-blue-700 font-medium">
+				🗑️ Successfully removed {removeResults.success.length} profiles from your list!
+			</p>
+		</div>
+	{/if}
+
+	{#if removeResults.errors.length > 0}
+		<div class="bg-red-50 border border-red-200 rounded-lg p-4">
+			<p class="text-red-700 font-medium mb-2">
+				❌ Failed to remove {removeResults.errors.length} profiles:
+			</p>
+			<ul class="text-red-600 text-sm space-y-1">
+				{#each removeResults.errors as error}
+					<li>• {error.error}</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
+
 	<!-- Two Column Layout -->
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="list-manager-layout">
 		<!-- Column 1: Latest List Members -->
 		<div
 			id="list-members-container"
 			class="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col"
 		>
 			<div class="p-6 border-b border-gray-200">
-				<h3 class="text-lg font-semibold text-slate-800 mb-2">Latest List Members</h3>
+				<h3 class="text-lg font-semibold text-slate-800 mb-2">Latest list members</h3>
 				<p class="text-sm text-slate-600">
-					Showing {isLoadingMembersPage ? '...' : $listStore.listMemberProfiles.length} of {$listStore
-						.listMembers.length} total members
+					Showing {isLoadingMembersPage ? '...' : $listStore.listMemberProfiles.length} of {totalMemberCount}
+					total members
 				</p>
 			</div>
 
 			<div class="p-6 flex flex-col flex-1">
+				<!-- Debug info -->
+				<div class="text-xs text-gray-500 mb-2">
+					Debug: isLoadingMembers={isLoadingMembers}, profiles={$listStore.listMemberProfiles
+						.length}, members={$listStore.listMembers.length}
+				</div>
+
 				{#if isLoadingMembers}
 					<div class="text-center py-12 flex-1 flex items-center justify-center">
 						<div>
@@ -261,11 +418,8 @@
 								</div>
 							{:else if $listStore.listMemberProfiles.length > 0}
 								{#each $listStore.listMemberProfiles as profile}
-									<a
-										href="https://bsky.app/profile/{profile.handle}"
-										target="_blank"
-										rel="noopener noreferrer"
-										class="block bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 hover:border-gray-300 transition-colors duration-200 cursor-pointer"
+									<div
+										class="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 hover:border-gray-300 transition-colors duration-200"
 									>
 										<div class="flex items-center space-x-3">
 											<div class="flex-shrink-0">
@@ -280,37 +434,57 @@
 												/>
 											</div>
 											<div class="flex-1 min-w-0">
-												<div class="flex items-center space-x-2 mb-1">
-													<h4 class="text-sm font-semibold text-gray-900 truncate">
-														{profile.displayName || profile.handle}
-													</h4>
-													<span class="text-xs text-gray-600 truncate">
-														@{profile.handle}
-													</span>
-												</div>
-												{#if profile.description}
-													<p class="text-xs text-gray-600 line-clamp-2">
-														{profile.description}
-													</p>
-												{/if}
+												<a
+													href="https://bsky.app/profile/{profile.handle}"
+													target="_blank"
+													rel="noopener noreferrer"
+													class="block hover:underline"
+												>
+													<div class="flex items-center space-x-2 mb-1">
+														<h4 class="text-sm font-semibold text-gray-900 truncate">
+															{profile.displayName || profile.handle}
+														</h4>
+														<span class="text-xs text-gray-600 truncate">
+															@{profile.handle}
+														</span>
+														<svg
+															class="w-3 h-3 text-gray-400"
+															fill="none"
+															stroke="currentColor"
+															viewBox="0 0 24 24"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+															></path>
+														</svg>
+													</div>
+													{#if profile.description}
+														<p class="text-xs text-gray-600 line-clamp-2">
+															{profile.description}
+														</p>
+													{/if}
+												</a>
 											</div>
 											<div class="flex-shrink-0">
-												<svg
-													class="w-4 h-4 text-gray-400"
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
+												<button
+													on:click={() => removeFromList(profile.did)}
+													disabled={removingProfiles.has(profile.did)}
+													class="bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 px-3 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+													title="Remove from list"
 												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-													></path>
-												</svg>
+													{#if removingProfiles.has(profile.did)}
+														<span class="loading-spinner mr-1"></span>
+														Removing...
+													{:else}
+														🗑️ Remove
+													{/if}
+												</button>
 											</div>
 										</div>
-									</a>
+									</div>
 								{/each}
 							{:else}
 								<!-- Fallback for when profiles haven't loaded yet or failed to load -->
@@ -352,11 +526,11 @@
 						</div>
 
 						<!-- Pagination Controls -->
-						{#if $listStore.listMembers.length > membersPerPage}
+						{#if totalPages > 1}
 							<div class="mt-6 pt-4 border-t border-gray-200">
 								<div class="flex items-center justify-between">
 									<div class="text-sm text-gray-600">
-										Page {currentMembersPage} of {getTotalPages()}
+										Page {currentMembersPage} of {totalPages} ({totalMemberCount} total members)
 									</div>
 									<div class="flex items-center space-x-2">
 										<button
@@ -372,14 +546,14 @@
 
 										<!-- Page Numbers -->
 										<div class="flex items-center space-x-1">
-											{#each Array.from({ length: Math.min(5, getTotalPages()) }, (_, i) => {
+											{#each Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
 												let pageNum;
-												if (getTotalPages() <= 5) {
+												if (totalPages <= 5) {
 													pageNum = i + 1;
 												} else if (currentMembersPage <= 3) {
 													pageNum = i + 1;
-												} else if (currentMembersPage >= getTotalPages() - 2) {
-													pageNum = getTotalPages() - 4 + i;
+												} else if (currentMembersPage >= totalPages - 2) {
+													pageNum = totalPages - 4 + i;
 												} else {
 													pageNum = currentMembersPage - 2 + i;
 												}
@@ -400,11 +574,11 @@
 
 										<button
 											on:click={nextPage}
-											disabled={currentMembersPage === getTotalPages() || isLoadingMembersPage}
+											disabled={currentMembersPage === totalPages || isLoadingMembersPage}
 											class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
 										>
 											Next
-											{#if isLoadingMembersPage && currentMembersPage < getTotalPages()}
+											{#if isLoadingMembersPage && currentMembersPage < totalPages}
 												<span class="loading-spinner ml-1"></span>
 											{/if}
 										</button>

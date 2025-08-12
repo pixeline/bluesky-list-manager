@@ -3,8 +3,8 @@
 	import config from '../config.js';
 </script>
 
-<div class="max-w-4xl mx-auto">
-	<div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+<div class="max-w-4xl mx-auto" id="list-selector">
+	<div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200" id="list-selector-content">
 		<div class="text-center mb-8">
 			<h2 class="text-2xl font-bold text-slate-800 mb-2">Welcome to Bluesky List Manager</h2>
 			<p class="text-slate-600">

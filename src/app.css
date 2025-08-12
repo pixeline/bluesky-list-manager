@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Bluesky Profile Catcher - Custom Styles */
 
 /* Base styles */
@@ -8,6 +12,13 @@ body {
     background-color: #ffffff;
     color: #1e293b;
     line-height: 1.6;
+    position: relative;
+}
+
+/* Ensure main content has proper z-index */
+main {
+    position: relative;
+    z-index: 5;
 }
 
 * {

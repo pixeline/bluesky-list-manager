@@ -21,6 +21,12 @@
 		loadUserLists();
 	}
 
+	// Watch for changes in user lists to update the dropdown
+	$: if ($listStore.userLists.length > 0) {
+		console.log('Header: userLists updated:', $listStore.userLists);
+		// This will trigger reactivity in the dropdown when userLists changes
+	}
+
 	async function loadUserLists() {
 		if (!$blueskyStore.session) return;
 
@@ -28,7 +34,7 @@
 		listsError = '';
 
 		try {
-			const lists = await blueskyApi.getUserLists($blueskyStore.session);
+			const lists = await blueskyApi.getUserLists($blueskyStore.session, $blueskyStore.authType);
 
 			// Process the lists - they now come with listItemCount directly
 			const processedLists = lists
@@ -76,7 +82,7 @@
 	}
 </script>
 
-<header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+<header class="bg-white border-b border-gray-200 sticky top-0 z-50" id="app-header">
 	<div class="max-w-6xl mx-auto px-6 py-4">
 		<div class="flex items-center justify-between mb-4">
 			<div>
@@ -94,7 +100,7 @@
 			<div class="flex items-center space-x-4">
 				{#if $blueskyStore.session}
 					<!-- List Selector Dropdown -->
-					<div class="flex items-center space-x-3">
+					<div class="flex items-center space-x-3" id="list-selector-container">
 						<label for="list-selector" class="text-sm font-medium text-slate-700 whitespace-nowrap"
 							>List:</label
 						>
@@ -113,9 +119,7 @@
 							{:else}
 								{#each $listStore.userLists as list}
 									<option value={list.uri}>
-										{list.name} ({$listStore.selectedList?.uri === list.uri
-											? $listStore.listMembers.length
-											: list.memberCount} members)
+										{list.name} ({list.memberCount.toLocaleString()} members)
 									</option>
 								{/each}
 							{/if}
@@ -126,11 +130,12 @@
 					</div>
 
 					<!-- User Info -->
-					<div class="text-right">
+					<div class="text-right" id="user-info">
 						<div class="text-sm text-slate-700">@{$blueskyStore.session.handle}</div>
 						<button
 							on:click={handleSignOut}
 							class="bg-gray-100 hover:bg-gray-200 text-slate-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors duration-200 font-medium"
+							id="sign-out-button"
 						>
 							Sign out
 						</button>
@@ -139,6 +144,7 @@
 					<button
 						on:click={handleSignIn}
 						class="bg-slate-800 hover:bg-slate-700 text-white border-0 px-5 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-200"
+						id="sign-in-button"
 					>
 						🔐 Sign in with Bluesky
 					</button>

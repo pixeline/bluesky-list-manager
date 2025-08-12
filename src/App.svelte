@@ -6,16 +6,18 @@
 	import ListManager from './components/ListManager.svelte';
 	import LoadingOverlay from './components/LoadingOverlay.svelte';
 	import ConfigTest from './components/ConfigTest.svelte';
+	import ButterflyBackground from './components/ButterflyBackground.svelte';
 	import { blueskyStore } from './stores/blueskyStore.js';
 	import { listStore } from './stores/listStore.js';
 	import config from './config.js';
 
 	let currentView = 'auth'; // 'auth', 'list-selector', 'manager'
 
-	onMount(() => {
-		// Check if user is already authenticated
-		const session = blueskyStore.getSession();
+	onMount(async () => {
+		// Initialize session from storage (check both OAuth and app password)
+		const { session, authType } = await blueskyStore.initializeSession();
 		if (session) {
+			console.log('Session restored:', { authType, handle: session.handle || session.did });
 			currentView = 'list-selector';
 		}
 	});
@@ -32,17 +34,15 @@
 	}
 </script>
 
-<main class="min-h-screen bg-gray-50">
+<main class="min-h-screen bg-gray-50" id="app-main">
+	<!-- Butterfly Background -->
+	<ButterflyBackground />
+
 	{#if currentView !== 'auth'}
 		<Header />
 	{/if}
 
-	<div class="max-w-6xl mx-auto p-6">
-		<!-- Configuration test (development only) -->
-		{#if config.isDevelopment}
-			<ConfigTest />
-		{/if}
-
+	<div class="max-w-6xl mx-auto p-6" id="app-content">
 		{#if currentView === 'auth'}
 			<AuthInstructions />
 		{:else if currentView === 'list-selector'}

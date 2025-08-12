@@ -345,23 +345,64 @@ export async function handleOAuthCallback(queryParams) {
 }
 
 // Store OAuth session
-export function storeOAuthSession(session) {
+export async function storeOAuthSession(session) {
+    // Export the DPoP keypair to JWK format for storage
+    const privateKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.privateKey);
+    const publicKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.publicKey);
+
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
         sub: session.sub,
         serverNonce: session.serverNonce,
+        dpopKeypair: {
+            privateKey: privateKeyJwk,
+            publicKey: publicKeyJwk
+        },
         timestamp: Date.now()
     }));
 }
 
 // Get stored OAuth session
-export function getStoredOAuthSession() {
+export async function getStoredOAuthSession() {
     const stored = localStorage.getItem(AUTH_STORAGE_KEY);
     if (stored) {
         try {
-            return JSON.parse(stored);
+            const session = JSON.parse(stored);
+
+            // Import the DPoP keypair if it exists
+            if (session.dpopKeypair) {
+                const privateKey = await crypto.subtle.importKey(
+                    'jwk',
+                    session.dpopKeypair.privateKey,
+                    {
+                        name: 'ECDSA',
+                        namedCurve: 'P-256'
+                    },
+                    true,
+                    ['sign']
+                );
+
+                const publicKey = await crypto.subtle.importKey(
+                    'jwk',
+                    session.dpopKeypair.publicKey,
+                    {
+                        name: 'ECDSA',
+                        namedCurve: 'P-256'
+                    },
+                    true,
+                    ['verify']
+                );
+
+                session.dpopKeypair = {
+                    privateKey,
+                    publicKey
+                };
+            }
+
+            return session;
         } catch (e) {
+            console.error('Failed to parse stored OAuth session:', e);
             localStorage.removeItem(AUTH_STORAGE_KEY);
         }
     }

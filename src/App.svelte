@@ -13,9 +13,9 @@
 
 	let currentView = 'auth'; // 'auth', 'list-selector', 'manager'
 
-	onMount(() => {
+	onMount(async () => {
 		// Initialize session from storage (check both OAuth and app password)
-		const { session, authType } = blueskyStore.initializeSession();
+		const { session, authType } = await blueskyStore.initializeSession();
 		if (session) {
 			console.log('Session restored:', { authType, handle: session.handle || session.did });
 			currentView = 'list-selector';

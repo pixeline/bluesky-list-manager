@@ -28,7 +28,7 @@ class BlueskyApi {
   async getAuthHeaders(session, authType = 'app_password') {
     if (authType === 'oauth') {
       // For OAuth, we need to create DPoP headers
-      const oauthSession = getStoredOAuthSession();
+      const oauthSession = await getStoredOAuthSession();
       if (!oauthSession || !oauthSession.accessToken) {
         throw new Error('No OAuth session found');
       }
@@ -64,13 +64,18 @@ class BlueskyApi {
 
     // For OAuth requests, we need to update the DPoP JWT for the specific endpoint
     if (authType === 'oauth' && headers.DPoP) {
-      const oauthSession = getStoredOAuthSession();
-      const dpopKeypair = await generateDpopKeypair();
+      const oauthSession = await getStoredOAuthSession();
+      if (!oauthSession.dpopKeypair) {
+        throw new Error('No DPoP keypair found in OAuth session');
+      }
+
+      // Use the stored DPoP keypair instead of generating a new one
       const dpopJwt = await createDpopJwt(
-        dpopKeypair,
+        oauthSession.dpopKeypair,
         method,
         `${BLUESKY_API}/${endpoint}`,
-        oauthSession.serverNonce
+        oauthSession.serverNonce,
+        oauthSession.accessToken // Include the access token for API requests
       );
       headers.DPoP = dpopJwt;
     }
@@ -97,7 +102,7 @@ class BlueskyApi {
   async getUserLists(session, authType = 'app_password') {
     // For OAuth, we need to get the user's handle first
     if (authType === 'oauth') {
-      const oauthSession = getStoredOAuthSession();
+      const oauthSession = await getStoredOAuthSession();
       if (!oauthSession.sub) {
         throw new Error('No user DID found in OAuth session');
       }

@@ -108,11 +108,11 @@
 						<div class="space-y-2">
 							<label class="flex items-center">
 								<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" />
-								<span class="text-sm">OAuth (Recommended)</span>
+								<span class="text-sm">OAuth (Not working yet)</span>
 							</label>
 							<label class="flex items-center">
 								<input type="radio" bind:group={authMethod} value="app_password" class="mr-2" />
-								<span class="text-sm">App Password (Legacy)</span>
+								<span class="text-sm">App Password</span>
 							</label>
 						</div>
 					</fieldset>

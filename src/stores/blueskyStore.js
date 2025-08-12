@@ -63,16 +63,16 @@ function createBlueskyStore() {
       clearOAuthSession(); // Also clear OAuth-specific storage
       set({ session: null, authType: null, isLoading: false, error: null });
     },
-    // Initialize session from storage (check both OAuth and app password)
-    initializeSession: () => {
+        // Initialize session from storage (check both OAuth and app password)
+    initializeSession: async () => {
       // First check for OAuth session
-      const oauthSession = getStoredOAuthSession();
+      const oauthSession = await getStoredOAuthSession();
       if (oauthSession && oauthSession.accessToken) {
         // Convert OAuth session to compatible format
         const session = {
           accessJwt: oauthSession.accessToken,
           refreshJwt: oauthSession.refreshToken,
-          handle: oauthSession.sub, // Use DID as handle for OAuth
+          handle: oauthSession.handle || oauthSession.sub, // Use handle if available, fallback to DID
           did: oauthSession.sub,
           email: null
         };

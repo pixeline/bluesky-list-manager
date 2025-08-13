@@ -109,7 +109,12 @@
 							<div class="mb-4">
 								<label class="flex items-center">
 									<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" />
-									<span class="text-sm">OAuth</span>
+									<span class="text-sm font-medium">OAuth</span>
+									<span
+										class="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+									>
+										Recommended
+									</span>
 								</label>
 								<p class="text-xs text-gray-500 ml-6 mt-1">
 									Secure OAuth login with Bluesky. No passwords stored on this site.
@@ -118,6 +123,9 @@
 							<label class="flex items-center">
 								<input type="radio" bind:group={authMethod} value="app_password" class="mr-2" />
 								<span class="text-sm">App Password</span>
+								<p class="text-xs text-gray-500 ml-6 mt-1">
+									Traditional login using your Bluesky handle and app password.
+								</p>
 							</label>
 						</div>
 					</fieldset>
@@ -125,7 +133,7 @@
 
 				{#if authMethod === 'oauth'}
 					<!-- OAuth Information -->
-					<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+					<div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
 						<div class="flex items-start">
 							<div class="flex-shrink-0">
 								<svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">

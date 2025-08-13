@@ -380,7 +380,7 @@
 
 			<div class="p-6 flex flex-col flex-1">
 				<!-- Debug info -->
-				<div class="text-xs text-gray-500 mb-2">
+				<div class="text-xs text-gray-500 mb-2 hidden">
 					Debug: isLoadingMembers={isLoadingMembers}, profiles={$listStore.listMemberProfiles
 						.length}, members={$listStore.listMembers.length}
 				</div>

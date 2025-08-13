@@ -307,7 +307,7 @@
 
 		stats = {
 			totalMembers,
-			recentAdditions,
+			recentAdditions: growthRate, // Use growth rate instead of profile count
 			verifiedAccounts,
 			accountsWithAvatars,
 			accountsWithBios,
@@ -432,18 +432,30 @@
 			</div>
 		</div>
 
-		<!-- List Age -->
-		<div class="bg-yellow-50 p-4 rounded-lg">
+		<!-- Recent Growth -->
+		<div class="bg-orange-50 p-4 rounded-lg">
 			<div class="flex items-center justify-between">
 				<div>
-					<div class="text-yellow-600 font-semibold text-sm">📅 Age</div>
-					<div class="text-2xl font-bold text-yellow-700">
-						{stats.listAge}
+					<div class="text-orange-600 font-semibold text-sm">�� Growth Rate</div>
+					<div class="text-2xl font-bold text-orange-700">
+						{isLoadingStats
+							? '...'
+							: $listStore.selectedList?.createdAt
+								? stats.growthRate || 0
+								: 'N/A'}
 					</div>
 				</div>
-				<div class="text-yellow-400 text-3xl">📆</div>
+				<div class="text-orange-400 text-3xl">🚀</div>
 			</div>
-			<div class="text-xs text-yellow-600 mt-1">days old</div>
+			<div class="text-xs text-orange-600 mt-1">
+				{isLoadingStats
+					? 'Calculating...'
+					: $listStore.selectedList?.createdAt
+						? stats.growthRate > 0
+							? `${stats.growthRate} members/day`
+							: 'No growth data'
+						: 'Creation date unavailable'}
+			</div>
 		</div>
 	</div>
 

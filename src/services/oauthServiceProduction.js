@@ -353,10 +353,32 @@ export async function handleOAuthCallback(queryParams) {
         // 9. Parse the token response
         const tokenData = await tokenResponse.json();
 
+        // 10. Get user profile to get handle
+        let handle = tokenData.sub; // Use DID as fallback
+        try {
+            const profileResponse = await fetch(`${serverUrl}/xrpc/app.bsky.actor.getProfile?actor=${tokenData.sub}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${tokenData.access_token}`
+                }
+            });
+
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                if (profileData.handle) {
+                    handle = profileData.handle;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch user profile:', error);
+            // Continue with DID as fallback
+        }
+
         return {
             accessToken: tokenData.access_token,
             refreshToken: tokenData.refresh_token,
             sub: tokenData.sub,
+            handle: handle,
             dpopKeypair,
             serverNonce: newNonce
         };
@@ -369,13 +391,35 @@ export async function handleOAuthCallback(queryParams) {
 
 // Store OAuth session
 export function storeOAuthSession(session) {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        sub: session.sub,
-        serverNonce: session.serverNonce,
-        timestamp: Date.now()
-    }));
+    // Export the DPoP keypair to JWK format for storage
+    if (session.dpopKeypair) {
+        crypto.subtle.exportKey('jwk', session.dpopKeypair.privateKey).then(privateKeyJwk => {
+            crypto.subtle.exportKey('jwk', session.dpopKeypair.publicKey).then(publicKeyJwk => {
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+                    accessToken: session.accessToken,
+                    refreshToken: session.refreshToken,
+                    sub: session.sub,
+                    handle: session.handle,
+                    serverNonce: session.serverNonce,
+                    dpopKeypair: {
+                        privateKey: privateKeyJwk,
+                        publicKey: publicKeyJwk
+                    },
+                    timestamp: Date.now()
+                }));
+            });
+        });
+    } else {
+        // Fallback if no keypair (shouldn't happen in normal flow)
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            sub: session.sub,
+            handle: session.handle,
+            serverNonce: session.serverNonce,
+            timestamp: Date.now()
+        }));
+    }
 }
 
 // Get stored OAuth session
@@ -383,12 +427,44 @@ export function getStoredOAuthSession() {
     const stored = localStorage.getItem(AUTH_STORAGE_KEY);
     if (stored) {
         try {
-            return JSON.parse(stored);
+            const session = JSON.parse(stored);
+
+            // Import the DPoP keypair if it exists
+            if (session.dpopKeypair) {
+                return Promise.all([
+                    crypto.subtle.importKey(
+                        'jwk',
+                        session.dpopKeypair.privateKey,
+                        {
+                            name: 'ECDSA',
+                            namedCurve: 'P-256'
+                        },
+                        true,
+                        ['sign']
+                    ),
+                    crypto.subtle.importKey(
+                        'jwk',
+                        session.dpopKeypair.publicKey,
+                        {
+                            name: 'ECDSA',
+                            namedCurve: 'P-256'
+                        },
+                        true,
+                        ['verify']
+                    )
+                ]).then(([privateKey, publicKey]) => {
+                    session.dpopKeypair = { privateKey, publicKey };
+                    return session;
+                });
+            }
+
+            return Promise.resolve(session);
         } catch (e) {
             localStorage.removeItem(AUTH_STORAGE_KEY);
+            return Promise.resolve(null);
         }
     }
-    return null;
+    return Promise.resolve(null);
 }
 
 // Clear OAuth session

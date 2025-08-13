@@ -353,27 +353,8 @@
                 // 8. Parse the token response
                 const tokenData = await tokenResponse.json();
 
-                // 9. Get user profile to get handle
-                let handle = tokenData.sub; // Use DID as fallback
-                try {
-                    const profileResponse = await fetch(`${serverUrl}/xrpc/app.bsky.actor.getProfile?actor=${tokenData.sub}`, {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${tokenData.access_token}`,
-                            'DPoP': await createDpopJwt(dpopKeypair, 'GET', `${serverUrl}/xrpc/app.bsky.actor.getProfile?actor=${tokenData.sub}`, tokenResponse.headers.get('DPoP-Nonce'))
-                        }
-                    });
-
-                    if (profileResponse.ok) {
-                        const profileData = await profileResponse.json();
-                        if (profileData.handle) {
-                            handle = profileData.handle;
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch user profile:', error);
-                    // Continue with DID as fallback
-                }
+                // 10. Get user profile to resolve handle
+                const handle = await resolveUserHandle(serverUrl, tokenData.access_token, tokenData.sub, dpopKeypair, newNonce);
 
                 return {
                     accessToken: tokenData.access_token,
@@ -381,7 +362,7 @@
                     sub: tokenData.sub,
                     handle: handle,
                     dpopKeypair,
-                    serverNonce: tokenResponse.headers.get('DPoP-Nonce')
+                    serverNonce: newNonce
                 };
 
             } catch (error) {
@@ -390,23 +371,72 @@
             }
         }
 
-        async function storeOAuthSession(session) {
-            // Export the DPoP keypair to JWK format for storage
-            const privateKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.privateKey);
-            const publicKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.publicKey);
+        // Helper function to resolve user handle from profile
+        async function resolveUserHandle(serverUrl, accessToken, userDid, dpopKeypair, nonce) {
+            try {
+                console.log('Resolving handle for user DID:', userDid);
 
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-                accessToken: session.accessToken,
-                refreshToken: session.refreshToken,
-                sub: session.sub,
-                handle: session.handle,
-                serverNonce: session.serverNonce,
-                dpopKeypair: {
-                    privateKey: privateKeyJwk,
-                    publicKey: publicKeyJwk
-                },
-                timestamp: Date.now()
-            }));
+                // Use the public Bluesky API endpoint for profile fetching (no auth needed)
+                const profileUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${userDid}`;
+                console.log('Fetching profile from public API:', profileUrl);
+
+                const profileResponse = await fetch(profileUrl, {
+                    method: 'GET',
+                    // No Authorization header needed for public endpoints
+                });
+
+                if (profileResponse.ok) {
+                    const profileData = await profileResponse.json();
+                    if (profileData.handle && !profileData.handle.startsWith('did:')) {
+                        console.log('Successfully resolved handle:', profileData.handle);
+                        return profileData.handle;
+                    }
+                }
+
+                console.log('Failed to resolve handle, using DID as fallback');
+                return userDid; // Fallback to DID if handle resolution fails
+            } catch (error) {
+                console.error('Failed to fetch user profile for handle resolution:', error);
+                return userDid; // Fallback to DID on error
+            }
+        }
+
+        async function storeOAuthSession(session) {
+            try {
+                // Export the DPoP keypair to JWK format for storage
+                const privateKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.privateKey);
+                const publicKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.publicKey);
+
+                // Ensure all required JWK fields are present
+                if (!privateKeyJwk.kty || !publicKeyJwk.kty) {
+                    throw new Error('Invalid DPoP keypair - missing required JWK fields');
+                }
+
+                const sessionData = {
+                    accessToken: session.accessToken,
+                    refreshToken: session.refreshToken,
+                    sub: session.sub,
+                    handle: session.handle,
+                    serverNonce: session.serverNonce,
+                    dpopKeypair: {
+                        privateKey: privateKeyJwk,
+                        publicKey: publicKeyJwk
+                    },
+                    timestamp: Date.now()
+                };
+
+                console.log('Storing OAuth session with DPoP keypair:', {
+                    hasPrivateKey: !!sessionData.dpopKeypair.privateKey,
+                    hasPublicKey: !!sessionData.dpopKeypair.publicKey,
+                    privateKeyType: sessionData.dpopKeypair.privateKey.kty,
+                    publicKeyType: sessionData.dpopKeypair.publicKey.kty
+                });
+
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionData));
+            } catch (error) {
+                console.error('Failed to store OAuth session:', error);
+                throw error;
+            }
         }
 
         async function processCallback() {

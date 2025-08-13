@@ -73,15 +73,48 @@ function createBlueskyStore() {
 
       if (oauthSession && oauthSession.accessToken) {
         console.log('Converting OAuth session to compatible format...');
+
+        // Ensure we have a proper handle (not a DID)
+        let handle = oauthSession.handle;
+        if (!handle || handle.startsWith('did:')) {
+          console.log('OAuth session missing handle or has DID, attempting to resolve...');
+          try {
+            // Use the public Bluesky API endpoint for profile fetching (no auth needed)
+            const profileUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${oauthSession.sub}`;
+            console.log('Fetching profile from public API:', profileUrl);
+
+            const profileResponse = await fetch(profileUrl, {
+              method: 'GET',
+              // No Authorization header needed for public endpoints
+            });
+
+            if (profileResponse.ok) {
+              const profileData = await profileResponse.json();
+              if (profileData?.handle && !profileData.handle.startsWith('did:')) {
+                handle = profileData.handle;
+                console.log('Successfully resolved handle from profile:', handle);
+
+                // Update the handle in the oauthSession object (in memory only)
+                // Don't update localStorage as it would corrupt the DPoP keypair
+                oauthSession.handle = handle;
+                console.log('Updated OAuth session handle in memory (not in localStorage to preserve DPoP keypair)');
+              }
+            }
+          } catch (error) {
+            console.error('Failed to resolve handle from profile:', error);
+            // Continue with the original handle/DID
+          }
+        }
+
         // Convert OAuth session to compatible format
         const session = {
           accessJwt: oauthSession.accessToken,
           refreshJwt: oauthSession.refreshToken,
-          handle: oauthSession.handle || oauthSession.sub, // Prioritize handle, fallback to DID
+          handle: handle || oauthSession.sub, // Use resolved handle or fallback to DID
           did: oauthSession.sub,
           email: null
         };
-        console.log('Converted session:', session);
+        console.log('Converted OAuth session:', session);
         set({ session, authType: AUTH_TYPES.OAUTH, isLoading: false, error: null });
         return { session, authType: AUTH_TYPES.OAUTH };
       }

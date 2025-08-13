@@ -19,50 +19,6 @@
 		}
 	});
 
-	// Resolve handle for OAuth sessions if we only have a DID
-	$: if (
-		$blueskyStore.session &&
-		$blueskyStore.authType === 'oauth' &&
-		$blueskyStore.session.handle?.startsWith('did:')
-	) {
-		resolveOAuthHandle();
-	}
-
-	async function resolveOAuthHandle() {
-		try {
-			// First check if we already have a handle in the OAuth session
-			const oauthSession = await getStoredOAuthSession();
-			console.log('OAuth session from storage:', oauthSession);
-
-			if (oauthSession?.handle && !oauthSession.handle.startsWith('did:')) {
-				console.log('Using handle from OAuth storage:', oauthSession.handle);
-				// Update session with the handle from OAuth storage
-				blueskyStore.setSession(
-					{ ...$blueskyStore.session, handle: oauthSession.handle },
-					$blueskyStore.authType
-				);
-				return;
-			}
-
-			// Fallback: fetch profile from API
-			console.log('Fetching profile from API for DID:', $blueskyStore.session.did);
-			const profile = await blueskyApi.makeBlueskyRequest(
-				`app.bsky.actor.getProfile?actor=${$blueskyStore.session.did}`,
-				$blueskyStore.session,
-				$blueskyStore.authType
-			);
-			if (profile?.handle) {
-				console.log('Got handle from API:', profile.handle);
-				blueskyStore.setSession(
-					{ ...$blueskyStore.session, handle: profile.handle },
-					$blueskyStore.authType
-				);
-			}
-		} catch (e) {
-			console.error('Failed to resolve OAuth handle:', e);
-		}
-	}
-
 	// Watch for session changes to load lists
 	$: if ($blueskyStore.session && $listStore.userLists.length === 0) {
 		loadUserLists();
@@ -98,16 +54,7 @@
 			listStore.setUserLists(processedLists);
 		} catch (error) {
 			console.error('Failed to load user lists:', error);
-
-			// Special handling for OAuth scope issues
-			if (
-				error.message.includes('OAuth authentication successful, but tokens lack sufficient scope')
-			) {
-				listsError =
-					'OAuth login successful, but tokens lack sufficient permissions for API access. Please use app password login instead for full functionality.';
-			} else {
-				listsError = error.message || 'Failed to load lists';
-			}
+			listsError = error.message || 'Failed to load lists';
 		} finally {
 			isLoadingLists = false;
 		}
@@ -197,14 +144,6 @@
 						{#if listsError}
 							<p class="text-sm text-red-600 mt-1">
 								{listsError}
-								{#if listsError.includes('OAuth authentication successful, but tokens lack sufficient scope')}
-									<button
-										onclick={() => blueskyStore.clearSession()}
-										class="ml-2 text-blue-600 hover:text-blue-800 underline"
-									>
-										Switch to app password login
-									</button>
-								{/if}
 							</p>
 						{/if}
 					</div>

@@ -10,7 +10,7 @@
 	let password = '';
 	let isLoading = false;
 	let error = '';
-	let authMethod = 'app_password'; // 'oauth' or 'app_password'
+	let authMethod = 'oauth'; // 'oauth' or 'app_password' - OAuth is now default
 
 	async function handleOAuthSignIn() {
 		isLoading = true;
@@ -109,11 +109,10 @@
 							<div class="mb-4">
 								<label class="flex items-center">
 									<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" />
-									<span class="text-sm">OAuth (Limited Functionality)</span>
+									<span class="text-sm">OAuth</span>
 								</label>
 								<p class="text-xs text-gray-500 ml-6 mt-1">
-									OAuth login works but tokens lack sufficient scope for API access. Use app
-									password login for full functionality.
+									Secure OAuth login with Bluesky. No passwords stored on this site.
 								</p>
 							</div>
 							<label class="flex items-center">

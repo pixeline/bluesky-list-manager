@@ -44,14 +44,42 @@ function base64UrlEncode(buffer) {
 
 // Generate a DPoP keypair using WebCrypto
 export async function generateDpopKeypair() {
-    return await crypto.subtle.generateKey(
-        {
-            name: 'ECDSA',
-            namedCurve: 'P-256' // ES256 required by Bluesky
-        },
-        true, // Make keys extractable so we can export them for jose
-        ['sign', 'verify'] // can be used for signing and verification
-    );
+    try {
+        console.log('Generating DPoP keypair...');
+        const keypair = await crypto.subtle.generateKey(
+            {
+                name: 'ECDSA',
+                namedCurve: 'P-256' // ES256 required by Bluesky
+            },
+            true, // Make keys extractable so we can export them for jose
+            ['sign', 'verify'] // can be used for signing and verification
+        );
+
+        // Debug: Check the key structure
+        const privateKeyJwk = await crypto.subtle.exportKey('jwk', keypair.privateKey);
+        const publicKeyJwk = await crypto.subtle.exportKey('jwk', keypair.publicKey);
+
+        console.log('Generated DPoP keypair:', {
+            privateKey: {
+                kty: privateKeyJwk.kty,
+                crv: privateKeyJwk.crv,
+                hasX: !!privateKeyJwk.x,
+                hasY: !!privateKeyJwk.y,
+                hasD: !!privateKeyJwk.d
+            },
+            publicKey: {
+                kty: publicKeyJwk.kty,
+                crv: publicKeyJwk.crv,
+                hasX: !!publicKeyJwk.x,
+                hasY: !!publicKeyJwk.y
+            }
+        });
+
+        return keypair;
+    } catch (error) {
+        console.error('Failed to generate DPoP keypair:', error);
+        throw error;
+    }
 }
 
 // Create a DPoP JWT for token requests using the jose library
@@ -309,10 +337,14 @@ export async function handleOAuthCallback(queryParams) {
 
                     if (retryResponse.ok) {
                         const tokenData = await retryResponse.json();
+                        // Get user profile to resolve handle
+                        const handle = await resolveUserHandle(serverUrl, tokenData.access_token, tokenData.sub, dpopKeypair, retryResponse.headers.get('DPoP-Nonce') || newNonce);
+
                         return {
                             accessToken: tokenData.access_token,
                             refreshToken: tokenData.refresh_token,
                             sub: tokenData.sub,
+                            handle: handle,
                             dpopKeypair,
                             serverNonce: retryResponse.headers.get('DPoP-Nonce') || newNonce
                         };
@@ -330,26 +362,8 @@ export async function handleOAuthCallback(queryParams) {
         // 9. Parse the token response
         const tokenData = await tokenResponse.json();
 
-        // 10. Get user profile to get handle
-        let handle = tokenData.sub; // Use DID as fallback
-        try {
-            const profileResponse = await fetch(`${serverUrl}/xrpc/app.bsky.actor.getProfile?actor=${tokenData.sub}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${tokenData.access_token}`
-                }
-            });
-
-            if (profileResponse.ok) {
-                const profileData = await profileResponse.json();
-                if (profileData.handle) {
-                    handle = profileData.handle;
-                }
-            }
-        } catch (error) {
-            console.error('Failed to fetch user profile:', error);
-            // Continue with DID as fallback
-        }
+        // 10. Get user profile to resolve handle
+        const handle = await resolveUserHandle(serverUrl, tokenData.access_token, tokenData.sub, dpopKeypair, newNonce);
 
         return {
             accessToken: tokenData.access_token,
@@ -366,24 +380,101 @@ export async function handleOAuthCallback(queryParams) {
     }
 }
 
+// Helper function to resolve user handle from profile
+async function resolveUserHandle(serverUrl, accessToken, userDid, dpopKeypair, nonce) {
+    try {
+        console.log('Resolving handle for user DID:', userDid);
+
+        // Use the public Bluesky API endpoint for profile fetching (no auth needed)
+        const profileUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${userDid}`;
+        console.log('Fetching profile from public API:', profileUrl);
+
+        const profileResponse = await fetch(profileUrl, {
+            method: 'GET',
+            // No Authorization header needed for public endpoints
+        });
+
+        if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            if (profileData.handle && !profileData.handle.startsWith('did:')) {
+                console.log('Successfully resolved handle:', profileData.handle);
+                return profileData.handle;
+            }
+        }
+
+        console.log('Failed to resolve handle, using DID as fallback');
+        return userDid; // Fallback to DID if handle resolution fails
+    } catch (error) {
+        console.error('Failed to fetch user profile for handle resolution:', error);
+        return userDid; // Fallback to DID on error
+    }
+}
+
 // Store OAuth session
 export async function storeOAuthSession(session) {
-    // Export the DPoP keypair to JWK format for storage
-    const privateKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.privateKey);
-    const publicKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.publicKey);
+    try {
+        console.log('Storing OAuth session, input session:', {
+            hasAccessToken: !!session.accessToken,
+            hasRefreshToken: !!session.refreshToken,
+            hasSub: !!session.sub,
+            hasHandle: !!session.handle,
+            hasDpopKeypair: !!session.dpopKeypair,
+            dpopKeypairType: typeof session.dpopKeypair
+        });
 
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        sub: session.sub,
-        handle: session.handle,
-        serverNonce: session.serverNonce,
-        dpopKeypair: {
-            privateKey: privateKeyJwk,
-            publicKey: publicKeyJwk
-        },
-        timestamp: Date.now()
-    }));
+        // Export the DPoP keypair to JWK format for storage
+        const privateKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.privateKey);
+        const publicKeyJwk = await crypto.subtle.exportKey('jwk', session.dpopKeypair.publicKey);
+
+        console.log('Exported JWK keys:', {
+            privateKey: {
+                kty: privateKeyJwk.kty,
+                crv: privateKeyJwk.crv,
+                hasX: !!privateKeyJwk.x,
+                hasY: !!privateKeyJwk.y,
+                hasD: !!privateKeyJwk.d,
+                allKeys: Object.keys(privateKeyJwk)
+            },
+            publicKey: {
+                kty: publicKeyJwk.kty,
+                crv: publicKeyJwk.crv,
+                hasX: !!publicKeyJwk.x,
+                hasY: !!publicKeyJwk.y,
+                allKeys: Object.keys(publicKeyJwk)
+            }
+        });
+
+        // Ensure all required JWK fields are present
+        if (!privateKeyJwk.kty || !publicKeyJwk.kty) {
+            throw new Error('Invalid DPoP keypair - missing required JWK fields');
+        }
+
+        const sessionData = {
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            sub: session.sub,
+            handle: session.handle,
+            serverNonce: session.serverNonce,
+            dpopKeypair: {
+                privateKey: privateKeyJwk,
+                publicKey: publicKeyJwk
+            },
+            timestamp: Date.now()
+        };
+
+        console.log('Storing OAuth session with DPoP keypair:', {
+            hasPrivateKey: !!sessionData.dpopKeypair.privateKey,
+            hasPublicKey: !!sessionData.dpopKeypair.publicKey,
+            privateKeyType: sessionData.dpopKeypair.privateKey.kty,
+            publicKeyType: sessionData.dpopKeypair.publicKey.kty
+        });
+
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionData));
+        console.log('OAuth session stored successfully');
+    } catch (error) {
+        console.error('Failed to store OAuth session:', error);
+        throw error;
+    }
 }
 
 // Get stored OAuth session
@@ -392,35 +483,58 @@ export async function getStoredOAuthSession() {
     if (stored) {
         try {
             const session = JSON.parse(stored);
+            console.log('Retrieved stored OAuth session:', {
+                hasAccessToken: !!session.accessToken,
+                hasSub: !!session.sub,
+                hasDpopKeypair: !!session.dpopKeypair,
+                timestamp: session.timestamp
+            });
 
             // Import the DPoP keypair if it exists
-            if (session.dpopKeypair) {
-                const privateKey = await crypto.subtle.importKey(
-                    'jwk',
-                    session.dpopKeypair.privateKey,
-                    {
-                        name: 'ECDSA',
-                        namedCurve: 'P-256'
-                    },
-                    true,
-                    ['sign']
-                );
+            if (session.dpopKeypair && session.dpopKeypair.privateKey && session.dpopKeypair.publicKey) {
+                try {
+                    // Validate JWK structure
+                    if (!session.dpopKeypair.privateKey.kty || !session.dpopKeypair.publicKey.kty) {
+                        console.error('Invalid JWK structure in stored DPoP keypair');
+                        throw new Error('Invalid JWK structure');
+                    }
 
-                const publicKey = await crypto.subtle.importKey(
-                    'jwk',
-                    session.dpopKeypair.publicKey,
-                    {
-                        name: 'ECDSA',
-                        namedCurve: 'P-256'
-                    },
-                    true,
-                    ['verify']
-                );
+                    const privateKey = await crypto.subtle.importKey(
+                        'jwk',
+                        session.dpopKeypair.privateKey,
+                        {
+                            name: 'ECDSA',
+                            namedCurve: 'P-256'
+                        },
+                        true,
+                        ['sign']
+                    );
 
-                session.dpopKeypair = {
-                    privateKey,
-                    publicKey
-                };
+                    const publicKey = await crypto.subtle.importKey(
+                        'jwk',
+                        session.dpopKeypair.publicKey,
+                        {
+                            name: 'ECDSA',
+                            namedCurve: 'P-256'
+                        },
+                        true,
+                        ['verify']
+                    );
+
+                    session.dpopKeypair = {
+                        privateKey,
+                        publicKey
+                    };
+
+                    console.log('Successfully imported DPoP keypair');
+                } catch (keyError) {
+                    console.error('Failed to import DPoP keypair:', keyError);
+                    // Remove the corrupted session
+                    localStorage.removeItem(AUTH_STORAGE_KEY);
+                    return null;
+                }
+            } else {
+                console.warn('No DPoP keypair found in stored session');
             }
 
             return session;

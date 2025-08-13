@@ -30,10 +30,63 @@ class BlueskyApi {
       const oauthSession = await getStoredOAuthSession();
       if (!oauthSession?.accessToken) throw new Error('No OAuth access token found');
 
-      // For OAuth, use Bearer token
-      return {
+      // For OAuth, use Bearer token with DPoP if needed
+      const headers = {
         'Authorization': `Bearer ${oauthSession.accessToken}`
       };
+
+      // Add DPoP header for non-GET requests or if we have a nonce
+      if (method !== 'GET' || oauthSession.serverNonce) {
+        try {
+          const { createDpopJwt } = await import('./oauthService.js');
+
+          // Import the DPoP keypair if it exists
+          let dpopKeypair = oauthSession.dpopKeypair;
+          if (dpopKeypair && typeof dpopKeypair === 'object' && dpopKeypair.privateKey) {
+            // The keypair is already imported
+          } else if (dpopKeypair && dpopKeypair.privateKey && dpopKeypair.publicKey) {
+            // Import the JWK keys
+            const privateKey = await crypto.subtle.importKey(
+              'jwk',
+              dpopKeypair.privateKey,
+              {
+                name: 'ECDSA',
+                namedCurve: 'P-256'
+              },
+              true,
+              ['sign']
+            );
+
+            const publicKey = await crypto.subtle.importKey(
+              'jwk',
+              dpopKeypair.publicKey,
+              {
+                name: 'ECDSA',
+                namedCurve: 'P-256'
+              },
+              true,
+              ['verify']
+            );
+
+            dpopKeypair = { privateKey, publicKey };
+          }
+
+          if (dpopKeypair) {
+            const dpopJwt = await createDpopJwt(
+              dpopKeypair,
+              method,
+              url,
+              oauthSession.serverNonce
+            );
+            headers['DPoP'] = dpopJwt;
+          }
+        } catch (error) {
+          console.warn('Failed to create DPoP JWT for OAuth request:', error);
+          // Continue without DPoP if it fails
+        }
+      }
+
+      return headers;
     } else {
       // App password uses Bearer token
       return {
@@ -44,11 +97,46 @@ class BlueskyApi {
 
   // Helper method to make authenticated requests directly to Bluesky
   async makeBlueskyRequest(endpoint, session, authType = 'app_password', method = 'GET', body = null) {
-    const url = `${BLUESKY_API}/${endpoint}`;
+    // Determine the correct base URL based on endpoint type
+    let baseUrl;
+    if (authType === 'oauth') {
+      // For OAuth, check if this is a public endpoint that should use public API
+      const isPublicEndpoint = endpoint.includes('app.bsky.actor.getProfile') ||
+                              endpoint.includes('app.bsky.actor.searchActors') ||
+                              endpoint.includes('com.atproto.identity.resolveHandle') ||
+                              endpoint.includes('app.bsky.graph.getLists') || // Lists endpoint is public but requires auth
+                              endpoint.includes('app.bsky.graph.getList'); // Single list endpoint is also public but requires auth
+
+      if (isPublicEndpoint) {
+        // Use public API for public endpoints (auth still required for some)
+        baseUrl = 'https://public.api.bsky.app/xrpc';
+        console.log(`Using public API for endpoint: ${endpoint}`);
+      } else {
+        // Use the user's PDS for authenticated endpoints
+        baseUrl = BLUESKY_API;
+        console.log(`Using PDS for authenticated endpoint: ${endpoint}`);
+      }
+    } else {
+      // App password always uses the standard API
+      baseUrl = BLUESKY_API;
+    }
+
+    const url = `${baseUrl}/${endpoint}`;
     console.log(`makeBlueskyRequest: ${method} ${url} (authType: ${authType})`);
 
     try {
-      let headers = await this.getAuthHeaders(session, authType, method, url, body);
+      let headers = {};
+
+      // Only add auth headers for authenticated endpoints or when using PDS
+      if (authType === 'oauth' && baseUrl.includes('bsky.social')) {
+        headers = await this.getAuthHeaders(session, authType, method, url, body);
+      } else if (authType === 'oauth' && baseUrl.includes('public.api.bsky.app')) {
+        // For public API endpoints that still require OAuth authentication
+        headers = await this.getAuthHeaders(session, authType, method, url, body);
+      } else if (authType === 'app_password') {
+        headers = await this.getAuthHeaders(session, authType, method, url, body);
+      }
+
       console.log('Request headers:', headers);
 
       // Add Content-Type for requests with body
@@ -68,12 +156,6 @@ class BlueskyApi {
         const error = await response.json().catch(() => ({}));
         console.log('Response error:', error);
 
-        // Special handling for OAuth scope issues
-        if (authType === 'oauth' && error.error === 'InvalidToken' && error.message === 'Bad token scope') {
-          console.error('OAuth token scope insufficient for API access');
-          throw new Error('OAuth authentication successful, but tokens lack sufficient scope for API access. Please use app password login instead for full functionality.');
-        }
-
         throw new Error(error.message || `Request failed: ${response.status}`);
       }
 
@@ -91,19 +173,27 @@ class BlueskyApi {
       const oauthSession = await getStoredOAuthSession();
       console.log('OAuth session for getUserLists:', oauthSession);
 
-      if (!oauthSession?.sub) throw new Error('No user DID found in OAuth session');
+      if (!oauthSession?.sub) {
+        console.error('OAuth session missing or invalid:', {
+          hasSession: !!oauthSession,
+          hasSub: !!oauthSession?.sub,
+          sessionKeys: oauthSession ? Object.keys(oauthSession) : 'null'
+        });
+        throw new Error('No user DID found in OAuth session');
+      }
 
       // Use handle if available, otherwise fall back to DID
       const actor = oauthSession.handle || oauthSession.sub;
       console.log('Using actor for getUserLists:', actor);
 
       try {
+        // Use makeBlueskyRequest which now properly routes to PDS for authenticated endpoints
         const data = await this.makeBlueskyRequest(
           `app.bsky.graph.getLists?actor=${encodeURIComponent(actor)}`,
           session,
           authType
         );
-        console.log('getUserLists response:', data);
+        console.log('getUserLists OAuth response:', data);
         return data.lists || [];
       } catch (error) {
         console.error('Failed to fetch user lists via OAuth:', error);

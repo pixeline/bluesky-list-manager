@@ -4,9 +4,11 @@
 	import { listStore } from '../stores/listStore.js';
 	import { blueskyApi } from '../services/blueskyApi.js';
 	import SignInModal from './SignInModal.svelte';
+	import CreateListModal from './CreateListModal.svelte';
 	import config from '../config.js';
 
 	let showSignInModal = false;
+	let showCreateListModal = false;
 	let isLoadingLists = false;
 	let listsError = '';
 
@@ -72,6 +74,20 @@
 		showSignInModal = true;
 	}
 
+	function openCreateListModal() {
+		showCreateListModal = true;
+	}
+
+	function closeCreateListModal() {
+		showCreateListModal = false;
+	}
+
+	async function handleCreateListSuccess(event) {
+		const newList = event.detail;
+		// Insert into store and select it
+		listStore.insertNewList(newList, true);
+	}
+
 	function closeSignInModal() {
 		showSignInModal = false;
 	}
@@ -129,6 +145,16 @@
 						{/if}
 					</div>
 
+					<!-- New List Button -->
+					<button
+						on:click={openCreateListModal}
+						class="bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors duration-200 font-medium"
+						id="new-list-button"
+						title="Create a new list"
+					>
+						+ New List
+					</button>
+
 					<!-- User Info -->
 					<div class="text-right" id="user-info">
 						<div class="text-sm text-slate-700">@{$blueskyStore.session.handle}</div>
@@ -156,6 +182,10 @@
 
 {#if showSignInModal}
 	<SignInModal on:close={closeSignInModal} />
+{/if}
+
+{#if showCreateListModal}
+	<CreateListModal on:close={closeCreateListModal} on:success={handleCreateListSuccess} />
 {/if}
 
 <style>

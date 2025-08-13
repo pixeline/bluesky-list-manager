@@ -243,6 +243,53 @@ class BlueskyApi {
     return data;
   }
 
+  async createList(session, { name, description = '', purpose = 'app.bsky.graph.defs#curatelist' }, authType = 'app_password') {
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      throw new Error('List name is required');
+    }
+
+    // Determine user DID
+    let userDid;
+    if (authType === 'oauth') {
+      const oauthSession = getStoredOAuthSession();
+      userDid = oauthSession?.sub;
+    } else {
+      userDid = session?.did;
+    }
+
+    if (!userDid) {
+      throw new Error('Unable to determine user DID for list creation');
+    }
+
+    const record = {
+      '$type': 'app.bsky.graph.list',
+      name: name.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    if (description && typeof description === 'string') {
+      record.description = description.trim();
+    }
+
+    if (purpose && typeof purpose === 'string') {
+      record.purpose = purpose;
+    }
+
+    const data = await this.makeBlueskyRequest(
+      'com.atproto.repo.createRecord',
+      session,
+      authType,
+      'POST',
+      {
+        repo: userDid,
+        collection: 'app.bsky.graph.list',
+        record
+      }
+    );
+
+    return data;
+  }
+
     async removeFromList(session, did, listUri, authType = 'app_password') {
     // For OAuth, we need to get the user's DID
     let userDid;

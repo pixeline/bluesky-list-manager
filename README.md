@@ -4,18 +4,6 @@ A modern web application for managing members in your Bluesky lists. Built with 
 
 ## 🚀 Quick Start
 
-### Using Docker (Recommended)
-```bash
-# Make deployment script executable
-chmod +x deploy.sh
-
-# Deploy and build
-./deploy.sh
-
-# Start with Docker
-./start-docker.sh
-```
-
 ### Manual Setup
 ```bash
 # Install dependencies
@@ -58,8 +46,6 @@ bluesky-search-for-belgians/
 ├── api/                    # PHP backend APIs
 ├── static/                 # Static assets
 ├── dist/                   # Built application (after npm run build)
-├── docker-compose.yml      # Docker configuration
-├── deploy.sh              # Deployment script
 └── DEPLOYMENT.md          # Detailed deployment guide
 ```
 
@@ -68,14 +54,11 @@ bluesky-search-for-belgians/
 ### Prerequisites
 - Node.js 16+ and npm
 - PHP 8.0+ (for API endpoints)
-- Docker (optional, for containerized deployment)
 
 ### Available Scripts
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
-- `./deploy.sh` - Full deployment script
-- `./start-docker.sh` - Start with Docker
 
 ## 🔍 Troubleshooting
 
@@ -92,7 +75,6 @@ bluesky-search-for-belgians/
 ## 📚 Documentation
 
 - [Deployment Guide](DEPLOYMENT.md) - Comprehensive deployment instructions
-- [Docker Setup](README-DOCKER.md) - Docker-specific documentation
 - [Svelte Development](README-SVELTE.md) - Frontend development guide
 
 ## 🤝 Contributing

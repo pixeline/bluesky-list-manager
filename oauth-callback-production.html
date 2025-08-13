@@ -175,8 +175,7 @@
                     payload.ath = base64UrlEncode(hash);
                 }
 
-                // For production, we'll use a simplified approach
-                // In a real implementation, you'd use a JWT library
+                // Create header
                 const header = {
                     alg: 'ES256',
                     typ: 'dpop+jwt',
@@ -188,12 +187,37 @@
                     }
                 };
 
-                // This is a simplified JWT creation - in production you'd use a proper JWT library
-                const headerB64 = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-                const payloadB64 = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                // Encode header and payload
+                const headerB64 = btoa(JSON.stringify(header))
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
+                const payloadB64 = btoa(JSON.stringify(payload))
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
 
-                // Note: This is a placeholder - you'd need a proper JWT library for production
-                return `${headerB64}.${payloadB64}.signature`;
+                // Create the data to sign
+                const dataToSign = `${headerB64}.${payloadB64}`;
+                const encoder = new TextEncoder();
+                const data = encoder.encode(dataToSign);
+
+                // Sign the data
+                const signature = await crypto.subtle.sign(
+                    {
+                        name: 'ECDSA',
+                        hash: { name: 'SHA-256' }
+                    },
+                    keypair.privateKey,
+                    data
+                );
+
+                // Encode the signature
+                const signatureB64 = base64UrlEncode(signature);
+
+                // Return the complete JWT
+                return `${dataToSign}.${signatureB64}`;
+
             } catch (error) {
                 console.error('Error creating DPoP JWT:', error);
                 throw error;
@@ -240,7 +264,7 @@
                 const clientId = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
                 const path = window.location.pathname;
                 const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
-                const redirectUri = `${window.location.origin}${basePath}/oauth-callback.html`;
+                const redirectUri = `${window.location.origin}${basePath}/oauth-callback-standalone.html`;
 
                 const tokenRequestBody = new URLSearchParams({
                     grant_type: 'authorization_code',
@@ -276,10 +300,32 @@
                 // 8. Parse the token response
                 const tokenData = await tokenResponse.json();
 
+                // 9. Get user profile to get handle
+                let handle = tokenData.sub; // Use DID as fallback
+                try {
+                    const profileResponse = await fetch(`${serverUrl}/xrpc/app.bsky.actor.getProfile?actor=${tokenData.sub}`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${tokenData.access_token}`
+                        }
+                    });
+
+                    if (profileResponse.ok) {
+                        const profileData = await profileResponse.json();
+                        if (profileData.handle) {
+                            handle = profileData.handle;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch user profile:', error);
+                    // Continue with DID as fallback
+                }
+
                 return {
                     accessToken: tokenData.access_token,
                     refreshToken: tokenData.refresh_token,
                     sub: tokenData.sub,
+                    handle: handle,
                     dpopKeypair,
                     serverNonce: tokenResponse.headers.get('DPoP-Nonce')
                 };
@@ -291,13 +337,35 @@
         }
 
         function storeOAuthSession(session) {
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-                accessToken: session.accessToken,
-                refreshToken: session.refreshToken,
-                sub: session.sub,
-                serverNonce: session.serverNonce,
-                timestamp: Date.now()
-            }));
+            // Export the DPoP keypair to JWK format for storage
+            if (session.dpopKeypair) {
+                crypto.subtle.exportKey('jwk', session.dpopKeypair.privateKey).then(privateKeyJwk => {
+                    crypto.subtle.exportKey('jwk', session.dpopKeypair.publicKey).then(publicKeyJwk => {
+                        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+                            accessToken: session.accessToken,
+                            refreshToken: session.refreshToken,
+                            sub: session.sub,
+                            handle: session.handle,
+                            serverNonce: session.serverNonce,
+                            dpopKeypair: {
+                                privateKey: privateKeyJwk,
+                                publicKey: publicKeyJwk
+                            },
+                            timestamp: Date.now()
+                        }));
+                    });
+                });
+            } else {
+                // Fallback if no keypair (shouldn't happen in normal flow)
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+                    accessToken: session.accessToken,
+                    refreshToken: session.refreshToken,
+                    sub: session.sub,
+                    handle: session.handle,
+                    serverNonce: session.serverNonce,
+                    timestamp: Date.now()
+                }));
+            }
         }
 
         async function processCallback() {

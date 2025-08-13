@@ -3,6 +3,7 @@
 	import { blueskyStore } from '../stores/blueskyStore.js';
 	import { listStore } from '../stores/listStore.js';
 	import { blueskyApi } from '../services/blueskyApi.js';
+	import { getStoredOAuthSession } from '../services/oauthService.js';
 	import SignInModal from './SignInModal.svelte';
 	import CreateListModal from './CreateListModal.svelte';
 	import config from '../config.js';
@@ -18,6 +19,50 @@
 		}
 	});
 
+	// Resolve handle for OAuth sessions if we only have a DID
+	$: if (
+		$blueskyStore.session &&
+		$blueskyStore.authType === 'oauth' &&
+		$blueskyStore.session.handle?.startsWith('did:')
+	) {
+		resolveOAuthHandle();
+	}
+
+	async function resolveOAuthHandle() {
+		try {
+			// First check if we already have a handle in the OAuth session
+			const oauthSession = await getStoredOAuthSession();
+			console.log('OAuth session from storage:', oauthSession);
+
+			if (oauthSession?.handle && !oauthSession.handle.startsWith('did:')) {
+				console.log('Using handle from OAuth storage:', oauthSession.handle);
+				// Update session with the handle from OAuth storage
+				blueskyStore.setSession(
+					{ ...$blueskyStore.session, handle: oauthSession.handle },
+					$blueskyStore.authType
+				);
+				return;
+			}
+
+			// Fallback: fetch profile from API
+			console.log('Fetching profile from API for DID:', $blueskyStore.session.did);
+			const profile = await blueskyApi.makeBlueskyRequest(
+				`app.bsky.actor.getProfile?actor=${$blueskyStore.session.did}`,
+				$blueskyStore.session,
+				$blueskyStore.authType
+			);
+			if (profile?.handle) {
+				console.log('Got handle from API:', profile.handle);
+				blueskyStore.setSession(
+					{ ...$blueskyStore.session, handle: profile.handle },
+					$blueskyStore.authType
+				);
+			}
+		} catch (e) {
+			console.error('Failed to resolve OAuth handle:', e);
+		}
+	}
+
 	// Watch for session changes to load lists
 	$: if ($blueskyStore.session && $listStore.userLists.length === 0) {
 		loadUserLists();
@@ -32,10 +77,10 @@
 	async function loadUserLists() {
 		if (!$blueskyStore.session) return;
 
-		isLoadingLists = true;
-		listsError = '';
-
 		try {
+			isLoadingLists = true;
+			listsError = '';
+
 			const lists = await blueskyApi.getUserLists($blueskyStore.session, $blueskyStore.authType);
 
 			// Process the lists - they now come with listItemCount directly
@@ -51,8 +96,18 @@
 				.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
 			listStore.setUserLists(processedLists);
-		} catch (err) {
-			listsError = err.message || 'Failed to load your lists';
+		} catch (error) {
+			console.error('Failed to load user lists:', error);
+
+			// Special handling for OAuth scope issues
+			if (
+				error.message.includes('OAuth authentication successful, but tokens lack sufficient scope')
+			) {
+				listsError =
+					'OAuth login successful, but tokens lack sufficient permissions for API access. Please use app password login instead for full functionality.';
+			} else {
+				listsError = error.message || 'Failed to load lists';
+			}
 		} finally {
 			isLoadingLists = false;
 		}
@@ -115,17 +170,16 @@
 
 			<div class="flex items-center space-x-4">
 				{#if $blueskyStore.session}
-					<!-- List Selector Dropdown -->
-					<div class="flex items-center space-x-3" id="list-selector-container">
-						<label for="list-selector" class="text-sm font-medium text-slate-700 whitespace-nowrap"
+					<div class="flex-1">
+						<label for="list-selector" class="block text-sm font-medium text-gray-700 mb-1"
 							>List:</label
 						>
 						<select
 							id="list-selector"
 							value={$listStore.selectedList?.uri || ''}
 							on:change={handleListChange}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
 							disabled={isLoadingLists}
-							class="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 text-slate-800 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							<option value="">Select a list...</option>
 							{#if isLoadingLists}
@@ -140,8 +194,18 @@
 								{/each}
 							{/if}
 						</select>
-						{#if isLoadingLists}
-							<div class="loading-spinner"></div>
+						{#if listsError}
+							<p class="text-sm text-red-600 mt-1">
+								{listsError}
+								{#if listsError.includes('OAuth authentication successful, but tokens lack sufficient scope')}
+									<button
+										onclick={() => blueskyStore.clearSession()}
+										class="ml-2 text-blue-600 hover:text-blue-800 underline"
+									>
+										Switch to app password login
+									</button>
+								{/if}
+							</p>
 						{/if}
 					</div>
 

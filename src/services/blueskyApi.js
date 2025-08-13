@@ -25,106 +25,93 @@ class BlueskyApi {
   }
 
   // Get authentication headers based on session type
-  async getAuthHeaders(session, authType = 'app_password') {
+  async getAuthHeaders(session, authType = 'app_password', method = 'GET', url = '', body = null) {
     if (authType === 'oauth') {
-      // For OAuth, we need to create DPoP headers
       const oauthSession = await getStoredOAuthSession();
-      if (!oauthSession || !oauthSession.accessToken) {
-        throw new Error('No OAuth session found');
-      }
+      if (!oauthSession?.accessToken) throw new Error('No OAuth access token found');
 
-      // Generate a new DPoP keypair for this request
-      const dpopKeypair = await generateDpopKeypair();
-
-      // Create DPoP JWT for the request
-      const dpopJwt = await createDpopJwt(
-        dpopKeypair,
-        'GET', // Most Bluesky API calls are GET
-        `${BLUESKY_API}/app.bsky.graph.getLists`, // This will be overridden per request
-        oauthSession.serverNonce
-      );
-
+      // For OAuth, use Bearer token
       return {
-        'Authorization': `Bearer ${oauthSession.accessToken}`,
-        'DPoP': dpopJwt,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${oauthSession.accessToken}`
       };
     } else {
-      // For app password, use the standard session format
+      // App password uses Bearer token
       return {
-        'Authorization': `Bearer ${session.accessJwt}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${session.accessJwt}`
       };
     }
   }
 
   // Helper method to make authenticated requests directly to Bluesky
   async makeBlueskyRequest(endpoint, session, authType = 'app_password', method = 'GET', body = null) {
-    const headers = await this.getAuthHeaders(session, authType);
+    const url = `${BLUESKY_API}/${endpoint}`;
+    console.log(`makeBlueskyRequest: ${method} ${url} (authType: ${authType})`);
 
-    // For OAuth requests, we need to update the DPoP JWT for the specific endpoint
-    if (authType === 'oauth' && headers.DPoP) {
-      const oauthSession = await getStoredOAuthSession();
-      if (!oauthSession.dpopKeypair) {
-        throw new Error('No DPoP keypair found in OAuth session');
+    try {
+      let headers = await this.getAuthHeaders(session, authType, method, url, body);
+      console.log('Request headers:', headers);
+
+      // Add Content-Type for requests with body
+      if (body && method !== 'GET') {
+        headers['Content-Type'] = 'application/json';
       }
 
-      // Use the stored DPoP keypair instead of generating a new one
-      const dpopJwt = await createDpopJwt(
-        oauthSession.dpopKeypair,
+      const response = await fetch(url, {
         method,
-        `${BLUESKY_API}/${endpoint}`,
-        oauthSession.serverNonce,
-        oauthSession.accessToken // Include the access token for API requests
-      );
-      headers.DPoP = dpopJwt;
+        headers,
+        body: body ? JSON.stringify(body) : undefined
+      });
+
+      console.log(`Response status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        console.log('Response error:', error);
+
+        // Special handling for OAuth scope issues
+        if (authType === 'oauth' && error.error === 'InvalidToken' && error.message === 'Bad token scope') {
+          console.error('OAuth token scope insufficient for API access');
+          throw new Error('OAuth authentication successful, but tokens lack sufficient scope for API access. Please use app password login instead for full functionality.');
+        }
+
+        throw new Error(error.message || `Request failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`Bluesky API request failed for ${endpoint}:`, error);
+      throw error;
     }
-
-    const requestOptions = {
-      method,
-      headers
-    };
-
-    if (body && method !== 'GET') {
-      requestOptions.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(`${BLUESKY_API}/${endpoint}`, requestOptions);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || `Failed to fetch from ${endpoint}`);
-    }
-
-    return await response.json();
   }
 
   async getUserLists(session, authType = 'app_password') {
-    // For OAuth, we need to get the user's handle first
+    console.log('getUserLists called with authType:', authType);
+
     if (authType === 'oauth') {
       const oauthSession = await getStoredOAuthSession();
-      if (!oauthSession.sub) {
-        throw new Error('No user DID found in OAuth session');
+      console.log('OAuth session for getUserLists:', oauthSession);
+
+      if (!oauthSession?.sub) throw new Error('No user DID found in OAuth session');
+
+      // Use handle if available, otherwise fall back to DID
+      const actor = oauthSession.handle || oauthSession.sub;
+      console.log('Using actor for getUserLists:', actor);
+
+      try {
+        const data = await this.makeBlueskyRequest(
+          `app.bsky.graph.getLists?actor=${encodeURIComponent(actor)}`,
+          session,
+          authType
+        );
+        console.log('getUserLists response:', data);
+        return data.lists || [];
+      } catch (error) {
+        console.error('Failed to fetch user lists via OAuth:', error);
+        throw error;
       }
-
-      // Get user profile to get handle
-      const profile = await this.makeBlueskyRequest(
-        `app.bsky.actor.getProfile?actor=${oauthSession.sub}`,
-        session,
-        authType
-      );
-
-      const handle = profile.handle;
-      const data = await this.makeBlueskyRequest(
-        `app.bsky.graph.getLists?actor=${handle}`,
-        session,
-        authType
-      );
-      return data.lists || [];
     } else {
-      // App password flow
       const data = await this.makeBlueskyRequest(
-        `app.bsky.graph.getLists?actor=${session.handle}`,
+        `app.bsky.graph.getLists?actor=${encodeURIComponent(session.handle)}`,
         session,
         authType
       );
@@ -217,7 +204,7 @@ class BlueskyApi {
     // For OAuth, we need to get the user's DID
     let userDid;
     if (authType === 'oauth') {
-      const oauthSession = getStoredOAuthSession();
+      const oauthSession = await getStoredOAuthSession();
       userDid = oauthSession.sub;
     } else {
       userDid = session.did;
@@ -251,7 +238,7 @@ class BlueskyApi {
     // Determine user DID
     let userDid;
     if (authType === 'oauth') {
-      const oauthSession = getStoredOAuthSession();
+      const oauthSession = await getStoredOAuthSession();
       userDid = oauthSession?.sub;
     } else {
       userDid = session?.did;
@@ -290,11 +277,11 @@ class BlueskyApi {
     return data;
   }
 
-    async removeFromList(session, did, listUri, authType = 'app_password') {
+  async removeFromList(session, did, listUri, authType = 'app_password') {
     // For OAuth, we need to get the user's DID
     let userDid;
     if (authType === 'oauth') {
-      const oauthSession = getStoredOAuthSession();
+      const oauthSession = await getStoredOAuthSession();
       userDid = oauthSession.sub;
     } else {
       userDid = session.did;

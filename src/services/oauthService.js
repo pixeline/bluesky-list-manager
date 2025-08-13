@@ -330,10 +330,32 @@ export async function handleOAuthCallback(queryParams) {
         // 9. Parse the token response
         const tokenData = await tokenResponse.json();
 
+        // 10. Get user profile to get handle
+        let handle = tokenData.sub; // Use DID as fallback
+        try {
+            const profileResponse = await fetch(`${serverUrl}/xrpc/app.bsky.actor.getProfile?actor=${tokenData.sub}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${tokenData.access_token}`
+                }
+            });
+
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                if (profileData.handle) {
+                    handle = profileData.handle;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch user profile:', error);
+            // Continue with DID as fallback
+        }
+
         return {
             accessToken: tokenData.access_token,
             refreshToken: tokenData.refresh_token,
             sub: tokenData.sub,
+            handle: handle,
             dpopKeypair,
             serverNonce: newNonce
         };
@@ -354,6 +376,7 @@ export async function storeOAuthSession(session) {
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
         sub: session.sub,
+        handle: session.handle,
         serverNonce: session.serverNonce,
         dpopKeypair: {
             privateKey: privateKeyJwk,

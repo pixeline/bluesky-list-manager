@@ -106,10 +106,16 @@
 					<fieldset>
 						<legend class="block text-sm font-medium text-gray-700 mb-2">Sign in with:</legend>
 						<div class="space-y-2">
-							<label class="flex items-center">
-								<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" />
-								<span class="text-sm">OAuth (Not working yet)</span>
-							</label>
+							<div class="mb-4">
+								<label class="flex items-center">
+									<input type="radio" bind:group={authMethod} value="oauth" class="mr-2" />
+									<span class="text-sm">OAuth (Limited Functionality)</span>
+								</label>
+								<p class="text-xs text-gray-500 ml-6 mt-1">
+									OAuth login works but tokens lack sufficient scope for API access. Use app
+									password login for full functionality.
+								</p>
+							</div>
 							<label class="flex items-center">
 								<input type="radio" bind:group={authMethod} value="app_password" class="mr-2" />
 								<span class="text-sm">App Password</span>

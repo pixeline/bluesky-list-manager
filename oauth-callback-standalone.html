@@ -282,20 +282,31 @@
                     body: tokenRequestBody
                 });
 
+                // Log response details for debugging
+                console.log('Token response status:', tokenResponse.status);
+                console.log('Token response headers:', Object.fromEntries(tokenResponse.headers.entries()));
+
                 // If we received a DPoP-Nonce in the response, save it
                 const newNonce = tokenResponse.headers.get('DPoP-Nonce');
+                if (newNonce) {
+                    console.log('Received DPoP-Nonce:', newNonce);
+                }
 
                 if (!tokenResponse.ok) {
                     let errorMsg = 'Token request failed';
+                    let errorDetails = '';
                     try {
                         const errorData = await tokenResponse.json();
                         errorMsg += `: ${errorData.error}`;
                         if (errorData.error_description) {
                             errorMsg += ` - ${errorData.error_description}`;
+                            errorDetails = errorData.error_description;
                         }
+                        console.error('Token exchange error details:', errorData);
 
                         // Handle the case where we need to use a DPoP nonce
                         if (errorData.error === 'use_dpop_nonce' && newNonce) {
+                            console.log('Retrying with DPoP nonce:', newNonce);
                             const retryDpopJwt = await createDpopJwt(
                                 dpopKeypair,
                                 'POST',
@@ -328,7 +339,14 @@
                         }
                     } catch (e) {
                         console.error('Failed to parse error response', e);
+                        errorDetails = `Status: ${tokenResponse.status} ${tokenResponse.statusText}`;
                     }
+
+                    // Show detailed error in UI
+                    errorMessageEl.textContent = errorMsg;
+                    errorDetailsEl.textContent = errorDetails;
+                    loadingEl.style.display = 'none';
+                    errorEl.style.display = 'block';
                     throw new Error(errorMsg);
                 }
 
@@ -348,10 +366,13 @@
 
                     if (profileResponse.ok) {
                         const profileData = await profileResponse.json();
-                        handle = profileData.handle;
+                        if (profileData.handle) {
+                            handle = profileData.handle;
+                        }
                     }
                 } catch (error) {
                     console.error('Failed to fetch user profile:', error);
+                    // Continue with DID as fallback
                 }
 
                 return {

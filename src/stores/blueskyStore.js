@@ -63,19 +63,25 @@ function createBlueskyStore() {
       clearOAuthSession(); // Also clear OAuth-specific storage
       set({ session: null, authType: null, isLoading: false, error: null });
     },
-        // Initialize session from storage (check both OAuth and app password)
+    // Initialize session from storage (check both OAuth and app password)
     initializeSession: async () => {
+      console.log('Initializing session from storage...');
+
       // First check for OAuth session
       const oauthSession = await getStoredOAuthSession();
+      console.log('OAuth session found:', oauthSession);
+
       if (oauthSession && oauthSession.accessToken) {
+        console.log('Converting OAuth session to compatible format...');
         // Convert OAuth session to compatible format
         const session = {
           accessJwt: oauthSession.accessToken,
           refreshJwt: oauthSession.refreshToken,
-          handle: oauthSession.handle || oauthSession.sub, // Use handle if available, fallback to DID
+          handle: oauthSession.handle || oauthSession.sub, // Prioritize handle, fallback to DID
           did: oauthSession.sub,
           email: null
         };
+        console.log('Converted session:', session);
         set({ session, authType: AUTH_TYPES.OAUTH, isLoading: false, error: null });
         return { session, authType: AUTH_TYPES.OAUTH };
       }
@@ -83,10 +89,12 @@ function createBlueskyStore() {
       // Fall back to app password session
       const { session, authType } = blueskyStore.getSession();
       if (session) {
+        console.log('Using app password session:', session);
         set({ session, authType, isLoading: false, error: null });
         return { session, authType };
       }
 
+      console.log('No session found');
       return { session: null, authType: null };
     },
     // Check if current session is OAuth-based

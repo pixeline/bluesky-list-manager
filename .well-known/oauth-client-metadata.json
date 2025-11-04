@@ -3,8 +3,8 @@
     "application_type": "web",
     "client_name": "Bluesky List Manager",
     "client_uri": "https://pixeline.be/bluesky-list-manager",
-    "logo_uri": "https://pixeline.be/bluesky-list-manager/static/Bluesky_Logo.svg",
-    "scope": "atproto transition:generic",
+    "logo_uri": "https://pixeline.be/bluesky-list-manager/static/favicon.svg",
+    "scope": "atproto transition:generic repo:app.bsky.graph.list?action=create&action=update&action=delete repo:app.bsky.graph.listitem?action=create&action=delete",
     "grant_types": [
         "authorization_code",
         "refresh_token"

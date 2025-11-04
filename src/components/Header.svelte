@@ -98,6 +98,12 @@
 		blueskyStore.signOut();
 		listStore.setSelectedList(null);
 	}
+
+	async function handleRefreshSession() {
+		console.log('Manually refreshing session...');
+		const { session, authType } = await blueskyStore.initializeSession();
+		console.log('Session refresh result:', { session, authType });
+	}
 </script>
 
 <header class="bg-white border-b border-gray-200 sticky top-0 z-50" id="app-header">
@@ -167,6 +173,13 @@
 							id="sign-out-button"
 						>
 							Sign out
+						</button>
+						<button
+							on:click={handleRefreshSession}
+							class="bg-blue-100 hover:bg-blue-200 text-slate-700 border border-blue-300 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors duration-200 font-medium ml-2"
+							id="refresh-session-button"
+						>
+							🔄 Refresh
 						</button>
 					</div>
 				{:else}

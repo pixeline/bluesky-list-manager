@@ -142,7 +142,14 @@
 		addingProfiles = addingProfiles; // Trigger reactivity
 
 		try {
-			await blueskyApi.addToList($blueskyStore.session, profile.did, $listStore.selectedList.uri);
+			console.log('Adding profile to list with authType:', $blueskyStore.authType);
+			console.log('Current session:', $blueskyStore.session);
+			await blueskyApi.addToList(
+				$blueskyStore.session,
+				profile.did,
+				$listStore.selectedList.uri,
+				$blueskyStore.authType
+			);
 
 			// Optimized: Add to local state immediately without full reload
 			await listStore.fetchAndAddProfile($blueskyStore.session, profile.did);

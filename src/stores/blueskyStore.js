@@ -71,6 +71,12 @@ function createBlueskyStore() {
       const oauthSession = await getStoredOAuthSession();
       console.log('OAuth session found:', oauthSession);
 
+      // Debug: Check what's actually in localStorage
+      console.log('All localStorage keys:', Object.keys(localStorage));
+      console.log('bluesky_oauth_session:', localStorage.getItem('bluesky_oauth_session'));
+      console.log('bluesky_session:', localStorage.getItem('bluesky_session'));
+      console.log('bluesky_auth_type:', localStorage.getItem('bluesky_auth_type'));
+
       if (oauthSession && oauthSession.accessToken) {
         console.log('Converting OAuth session to compatible format...');
 

@@ -178,7 +178,12 @@ export async function startOAuthFlow(serverUrl = 'https://bsky.social') {
         authUrl.searchParams.append('client_id', clientId);
         authUrl.searchParams.append('response_type', 'code');
         authUrl.searchParams.append('redirect_uri', redirectUri);
-        authUrl.searchParams.append('scope', 'atproto transition:generic');
+        // Request granular repo scopes for list and listitem per Bluesky auth scopes
+        // repo:app.bsky.graph.list (create/update/delete), repo:app.bsky.graph.listitem (create/delete)
+        authUrl.searchParams.append(
+            'scope',
+            'atproto transition:generic repo:app.bsky.graph.list?action=create&action=update&action=delete repo:app.bsky.graph.listitem?action=create&action=delete'
+        );
         authUrl.searchParams.append('state', state);
         authUrl.searchParams.append('code_challenge', codeChallenge);
         authUrl.searchParams.append('code_challenge_method', 'S256');
@@ -479,7 +484,9 @@ export async function storeOAuthSession(session) {
 
 // Get stored OAuth session
 export async function getStoredOAuthSession() {
+    console.log('getStoredOAuthSession: Looking for key:', AUTH_STORAGE_KEY);
     const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    console.log('getStoredOAuthSession: Raw stored data:', stored);
     if (stored) {
         try {
             const session = JSON.parse(stored);

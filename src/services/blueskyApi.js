@@ -76,7 +76,8 @@ class BlueskyApi {
               dpopKeypair,
               method,
               url,
-              oauthSession.serverNonce
+              oauthSession.serverNonce,
+              oauthSession.accessToken
             );
             headers['DPoP'] = dpopJwt;
           }

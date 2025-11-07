@@ -15,6 +15,15 @@
 	let hasNextPage = false;
 	let addingProfiles = new Set();
 
+	const isReadyToModify = () => {
+		return (
+			!!$blueskyStore.session &&
+			$blueskyStore.authType === 'oauth' &&
+			!!$listStore.selectedList &&
+			!$listStore.isLoadingList
+		);
+	};
+
 	async function handleSearch() {
 		if (!searchQuery.trim() || !$blueskyStore.session) return;
 
@@ -152,7 +161,11 @@
 			);
 
 			// Optimized: Add to local state immediately without full reload
-			await listStore.fetchAndAddProfile($blueskyStore.session, profile.did);
+			await listStore.fetchAndAddProfile(
+				$blueskyStore.session,
+				profile.did,
+				$blueskyStore.authType
+			);
 
 			// Trigger fireworks effect with blue butterfly emoji
 			triggerButterflyConfetti();
@@ -256,6 +269,7 @@
 					placeholder="e.g., belge, artist, developer..."
 					class="flex-1 min-w-48 px-4 py-2.5 border border-gray-300 rounded-lg text-base outline-none shadow-sm text-slate-800 placeholder-gray-400 focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
 					required
+					canModify={isReadyToModify()}
 				/>
 				<button
 					type="submit"

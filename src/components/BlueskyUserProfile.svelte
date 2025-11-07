@@ -8,6 +8,7 @@
 	export let onAddToList = () => {};
 	export let isAddingToList = false;
 	export let isCheckingMembership = false; // New prop for membership checking state
+	export let canModify = true; // New: guard actions until session/list ready
 
 	function handleSelect() {
 		onSelect(profile);
@@ -103,7 +104,7 @@
 						</span>
 						<button
 							on:click={handleAddToList}
-							disabled={isAddingToList}
+							disabled={isAddingToList || !canModify}
 							class="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white border-0 cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
 						>
 							{#if isAddingToList}
@@ -206,7 +207,7 @@
 						</span>
 						<button
 							on:click={handleAddToList}
-							disabled={isAddingToList}
+							disabled={isAddingToList || !canModify}
 							class="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white border-0 cursor-pointer transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
 						>
 							{#if isAddingToList}

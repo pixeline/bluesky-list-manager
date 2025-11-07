@@ -11,13 +11,21 @@ export default defineConfig({
   mode: isProduction ? 'production' : 'development',
   server: {
     host: '0.0.0.0',
-    port: 5173
+    port: 5173,
+    allowedHosts: ['loose-apples-tap.loca.lt', 'pixeline.loca.lt', /\.loca\.lt$/],
+    hmr: {
+      host: 'pixeline.loca.lt',
+      protocol: 'wss'
+    }
   },
   publicDir: 'static',
   build: {
     outDir: 'dist',
     rollupOptions: {
-      input: 'index.html'
+      input: {
+        main: 'index.html',
+        oauthCallback: 'oauth-callback-standalone.html'
+      }
     }
   }
 })

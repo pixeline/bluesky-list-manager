@@ -137,12 +137,8 @@
             const origin = window.location.origin;
             const pathname = window.location.pathname;
             const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-            const clientId = isLocalhost
-                ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
-                : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
-            const redirectUri = isLocalhost
-                ? `${origin}/oauth-callback.html`
-                : `${origin}${basePath}/oauth-callback.html`;
+            const clientId = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+            const redirectUri = `${origin}${basePath}/oauth-callback.html`;
 
             document.getElementById('hostname').textContent = hostname;
             document.getElementById('origin').textContent = origin;

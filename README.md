@@ -51,9 +51,15 @@ bluesky-search-for-belgians/
 
 ## 🛠️ Development
 
+You'll need to tunnel your local development to be able to use the Bluesky oauth. Use localtunnel
+setup: `brew install localtunnel`
+
+then: `lt --port 5173 --subdomain pixeline` . your test url thus becomes https://pixeline.loca.lt
+
+
 ### Prerequisites
 - Node.js 16+ and npm
-- PHP 8.0+ (for API endpoints)
+- localtunnel
 
 ### Available Scripts
 - `npm run dev` - Start development server

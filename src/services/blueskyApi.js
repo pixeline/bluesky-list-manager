@@ -25,66 +25,57 @@ class BlueskyApi {
   }
 
   // Get authentication headers based on session type
-  async getAuthHeaders(session, authType = 'app_password', method = 'GET', url = '', body = null) {
+  async getAuthHeaders(session, authType = 'app_password', method = 'GET', url = '', body = null, overrideNonce = null) {
     if (authType === 'oauth') {
       const oauthSession = await getStoredOAuthSession();
       if (!oauthSession?.accessToken) throw new Error('No OAuth access token found');
+      // Use DPoP-bound access token: Authorization scheme must be DPoP and a DPoP header MUST accompany every request
+      const headers = {};
+      try {
+        const { createDpopJwt } = await import('./oauthService.js');
 
-      // For OAuth, use Bearer token with DPoP if needed
-      const headers = {
-        'Authorization': `Bearer ${oauthSession.accessToken}`
-      };
-
-      // Add DPoP header for non-GET requests or if we have a nonce
-      if (method !== 'GET' || oauthSession.serverNonce) {
-        try {
-          const { createDpopJwt } = await import('./oauthService.js');
-
-          // Import the DPoP keypair if it exists
-          let dpopKeypair = oauthSession.dpopKeypair;
-          if (dpopKeypair && typeof dpopKeypair === 'object' && dpopKeypair.privateKey) {
-            // The keypair is already imported
-          } else if (dpopKeypair && dpopKeypair.privateKey && dpopKeypair.publicKey) {
-            // Import the JWK keys
-            const privateKey = await crypto.subtle.importKey(
-              'jwk',
-              dpopKeypair.privateKey,
-              {
-                name: 'ECDSA',
-                namedCurve: 'P-256'
-              },
-              true,
-              ['sign']
-            );
-
-            const publicKey = await crypto.subtle.importKey(
-              'jwk',
-              dpopKeypair.publicKey,
-              {
-                name: 'ECDSA',
-                namedCurve: 'P-256'
-              },
-              true,
-              ['verify']
-            );
-
-            dpopKeypair = { privateKey, publicKey };
-          }
-
-          if (dpopKeypair) {
-            const dpopJwt = await createDpopJwt(
-              dpopKeypair,
-              method,
-              url,
-              oauthSession.serverNonce,
-              oauthSession.accessToken
-            );
-            headers['DPoP'] = dpopJwt;
-          }
-        } catch (error) {
-          console.warn('Failed to create DPoP JWT for OAuth request:', error);
-          // Continue without DPoP if it fails
+        // Import or reconstruct the DPoP keypair
+        let dpopKeypair = oauthSession.dpopKeypair;
+        if (dpopKeypair && dpopKeypair.privateKey && dpopKeypair.publicKey && !dpopKeypair.privateKey.type) {
+          // Looks like JWKs; import to CryptoKey
+          const privateKey = await crypto.subtle.importKey(
+            'jwk',
+            dpopKeypair.privateKey,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['sign']
+          );
+          const publicKey = await crypto.subtle.importKey(
+            'jwk',
+            dpopKeypair.publicKey,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['verify']
+          );
+          dpopKeypair = { privateKey, publicKey };
         }
+
+        if (dpopKeypair) {
+          const dpopJwt = await createDpopJwt(
+            dpopKeypair,
+            method,
+            url,
+            overrideNonce || oauthSession.serverNonce,
+            oauthSession.accessToken
+          );
+          headers['Authorization'] = `DPoP ${oauthSession.accessToken}`;
+          headers['DPoP'] = dpopJwt;
+          if (overrideNonce || oauthSession.serverNonce) {
+            headers['DPoP-Nonce'] = overrideNonce || oauthSession.serverNonce;
+          }
+        } else {
+          // Fallback: still send DPoP scheme; downstream may fail and surface error
+          headers['Authorization'] = `DPoP ${oauthSession.accessToken}`;
+        }
+      } catch (error) {
+        console.warn('Failed to prepare DPoP headers for OAuth request:', error);
+        // Fallback to DPoP scheme only
+        headers['Authorization'] = `DPoP ${oauthSession.accessToken}`;
       }
 
       return headers;
@@ -98,15 +89,26 @@ class BlueskyApi {
 
   // Helper method to make authenticated requests directly to Bluesky
   async makeBlueskyRequest(endpoint, session, authType = 'app_password', method = 'GET', body = null) {
+    // Helper to persist latest nonce for future requests
+    const setLatestNonce = (nonce) => {
+      try {
+        if (!nonce) return;
+        const raw = localStorage.getItem('bluesky_oauth_session');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        parsed.serverNonce = nonce;
+        localStorage.setItem('bluesky_oauth_session', JSON.stringify(parsed));
+      } catch { }
+    };
     // Determine the correct base URL based on endpoint type
     let baseUrl;
     if (authType === 'oauth') {
       // For OAuth, check if this is a public endpoint that should use public API
       const isPublicEndpoint = endpoint.includes('app.bsky.actor.getProfile') ||
-                              endpoint.includes('app.bsky.actor.searchActors') ||
-                              endpoint.includes('com.atproto.identity.resolveHandle') ||
-                              endpoint.includes('app.bsky.graph.getLists') || // Lists endpoint is public but requires auth
-                              endpoint.includes('app.bsky.graph.getList'); // Single list endpoint is also public but requires auth
+        endpoint.includes('app.bsky.actor.searchActors') ||
+        endpoint.includes('com.atproto.identity.resolveHandle') ||
+        endpoint.includes('app.bsky.graph.getLists') || // Lists endpoint is public but requires auth
+        endpoint.includes('app.bsky.graph.getList'); // Single list endpoint is also public but requires auth
 
       if (isPublicEndpoint) {
         // Use public API for public endpoints (auth still required for some)
@@ -114,8 +116,31 @@ class BlueskyApi {
         console.log(`Using public API for endpoint: ${endpoint}`);
       } else {
         // Use the user's PDS for authenticated endpoints
-        baseUrl = BLUESKY_API;
-        console.log(`Using PDS for authenticated endpoint: ${endpoint}`);
+        let pdsOrigin = 'https://bsky.social';
+        try {
+          const oauthSession = await getStoredOAuthSession();
+          const token = oauthSession?.accessToken || '';
+          // Try extracting PDS from token 'aud' (expected did:web:<domain>)
+          const parts = token.split('.');
+          if (parts.length >= 2) {
+            const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const json = atob(b64);
+            const payload = JSON.parse(json);
+            const aud = payload?.aud || '';
+            if (typeof aud === 'string' && aud.startsWith('did:web:')) {
+              const didWeb = decodeURIComponent(aud.substring('did:web:'.length));
+              // did:web can contain colon-escaped parts; take hostname portion
+              const domain = didWeb.split(':')[0];
+              if (domain) {
+                pdsOrigin = `https://${domain}`;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to derive PDS origin from OAuth token, falling back to bsky.social', e);
+        }
+        baseUrl = `${pdsOrigin.replace(/\/$/, '')}/xrpc`;
+        console.log(`Using PDS for authenticated endpoint via ${baseUrl}: ${endpoint}`);
       }
     } else {
       // App password always uses the standard API
@@ -128,11 +153,8 @@ class BlueskyApi {
     try {
       let headers = {};
 
-      // Only add auth headers for authenticated endpoints or when using PDS
-      if (authType === 'oauth' && baseUrl.includes('bsky.social')) {
-        headers = await this.getAuthHeaders(session, authType, method, url, body);
-      } else if (authType === 'oauth' && baseUrl.includes('public.api.bsky.app')) {
-        // For public API endpoints that still require OAuth authentication
+      // Add auth headers consistently
+      if (authType === 'oauth') {
         headers = await this.getAuthHeaders(session, authType, method, url, body);
       } else if (authType === 'app_password') {
         headers = await this.getAuthHeaders(session, authType, method, url, body);
@@ -145,19 +167,46 @@ class BlueskyApi {
         headers['Content-Type'] = 'application/json';
       }
 
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined
       });
 
       console.log(`Response status: ${response.status} ${response.statusText}`);
+      // Capture latest nonce even on success
+      const successNonce = response.headers.get('DPoP-Nonce');
+      if (successNonce) setLatestNonce(successNonce);
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
+        // Try nonce retry if required for DPoP-bound tokens
+        let error = await response.json().catch(() => ({}));
         console.log('Response error:', error);
 
-        throw new Error(error.message || `Request failed: ${response.status}`);
+        const nonce = response.headers.get('DPoP-Nonce');
+        if (authType === 'oauth' && error?.error === 'use_dpop_nonce' && nonce) {
+          try {
+            // Rebuild headers with nonce
+            const retryHeaders = await this.getAuthHeaders(session, authType, method, url, body, nonce);
+            response = await fetch(url, {
+              method,
+              headers: retryHeaders,
+              body: body ? JSON.stringify(body) : undefined
+            });
+            // Persist the nonce we just used (server may rotate again on success)
+            const retryNonce = response.headers.get('DPoP-Nonce');
+            if (retryNonce) setLatestNonce(retryNonce);
+            if (!response.ok) {
+              const retryErr = await response.json().catch(() => ({}));
+              throw new Error(retryErr.error_description || retryErr.error || `Request failed after nonce retry: ${response.status}`);
+            }
+            return await response.json();
+          } catch (nonceErr) {
+            throw nonceErr;
+          }
+        }
+
+        throw new Error(error.error_description || error.error || error.message || `Request failed: ${response.status}`);
       }
 
       return await response.json();

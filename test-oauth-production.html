@@ -140,12 +140,8 @@
             const pathname = window.location.pathname;
             const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
             const basePath = pathname.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
-            const clientId = isLocalhost
-                ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
-                : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
-            const redirectUri = isLocalhost
-                ? `${origin}/oauth-callback.html`
-                : `${origin}${basePath}/oauth-callback.html`;
+            const clientId = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+            const redirectUri = `${origin}${basePath}/oauth-callback.html`;
 
             document.getElementById('hostname').textContent = hostname;
             document.getElementById('origin').textContent = origin;
@@ -201,15 +197,11 @@
                 // Construct the authorization URL
                 const hostname = window.location.hostname;
                 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-                const clientId = isLocalhost
-                    ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
-                    : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+                const clientId = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
 
                 const path = window.location.pathname;
                 const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
-                const redirectUri = isLocalhost
-                    ? `${window.location.origin}/oauth-callback.html`
-                    : `${window.location.origin}${basePath}/oauth-callback.html`;
+                const redirectUri = `${window.location.origin}${basePath}/oauth-callback.html`;
 
                 const authUrl = new URL(`${serverUrl}/oauth/authorize`);
                 authUrl.searchParams.append('client_id', clientId);
@@ -302,9 +294,7 @@
             try {
                 const hostname = window.location.hostname;
                 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-                const metadataUrl = isLocalhost
-                    ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
-                    : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+                const metadataUrl = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
 
                 document.getElementById('status').innerHTML = `
                     <div class="info">

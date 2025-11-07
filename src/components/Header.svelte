@@ -110,7 +110,7 @@
 	<div class="max-w-6xl mx-auto px-6 py-4">
 		<div class="flex items-center justify-between mb-4">
 			<div>
-				<h1 class="text-2xl font-bold m-0 text-slate-800 flex items-center gap-2">
+				<h1 class="text-xl font-bold m-0 text-slate-800 flex items-center gap-2">
 					<img
 						src={config.getAssetPath('static/Bluesky_Logo.svg')}
 						class="w-6 h-6"
@@ -118,13 +118,13 @@
 					/>
 					Bluesky List Manager
 				</h1>
-				<p class="text-sm text-slate-600 m-0 mt-1">Manage members in your Bluesky lists</p>
+				<p class="text-xs text-slate-600 m-0 mt-1">Manage members in your Bluesky lists</p>
 			</div>
 
 			<div class="flex items-center space-x-4">
 				{#if $blueskyStore.session}
 					<div class="flex-1">
-						<label for="list-selector" class="block text-sm font-medium text-gray-700 mb-1"
+						<label for="list-selector" class="block text-sm font-medium text-gray-700 mb-1 sr-only"
 							>List:</label
 						>
 						<select
@@ -165,7 +165,7 @@
 					</button>
 
 					<!-- User Info -->
-					<div class="text-right" id="user-info">
+					<div class="text-right flex items-center gap-2" id="user-info">
 						<div class="text-sm text-slate-700">@{$blueskyStore.session.handle}</div>
 						<button
 							on:click={handleSignOut}
@@ -173,13 +173,6 @@
 							id="sign-out-button"
 						>
 							Sign out
-						</button>
-						<button
-							on:click={handleRefreshSession}
-							class="bg-blue-100 hover:bg-blue-200 text-slate-700 border border-blue-300 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors duration-200 font-medium ml-2"
-							id="refresh-session-button"
-						>
-							🔄 Refresh
 						</button>
 					</div>
 				{:else}

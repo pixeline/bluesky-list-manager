@@ -162,7 +162,7 @@ function createListStore() {
       });
     },
     // New method: Fetch and add profile data for a single DID
-    fetchAndAddProfile: (session, did, authType = 'app_password') => {
+    fetchAndAddProfile: (session, did, authType = 'oauth') => {
       if (isUpdating) return Promise.resolve();
       isUpdating = true;
 

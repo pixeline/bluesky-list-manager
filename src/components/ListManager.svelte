@@ -241,6 +241,17 @@
 			totalMemberCount = Math.max(0, totalMemberCount - 1);
 			totalPages = Math.ceil(totalMemberCount / membersPerPage);
 
+			// Update selected list count and user lists
+			const updatedSelectedListLocal = $listStore.selectedList
+				? {
+						...$listStore.selectedList,
+						listItemCount: Math.max(0, ($listStore.selectedList.listItemCount || 0) - 1)
+					}
+				: null;
+			if (updatedSelectedListLocal) {
+				listStore.setSelectedList(updatedSelectedListLocal);
+			}
+
 			// Update user lists
 			const updatedUserLists = $listStore.userLists.map((list) => {
 				if (list.uri === $listStore.selectedList.uri) {

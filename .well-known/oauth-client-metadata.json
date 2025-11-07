@@ -13,7 +13,8 @@
         "code"
     ],
     "redirect_uris": [
-        "https://pixeline.be/bluesky-list-manager/oauth-callback-standalone.html"
+        "https://pixeline.be/bluesky-list-manager/oauth-callback-standalone.html",
+        "https://pixeline.loca.lt/oauth-callback-standalone.html"
     ],
     "token_endpoint_auth_method": "none",
     "code_challenge_method": "S256",

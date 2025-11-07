@@ -12,6 +12,11 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['loose-apples-tap.loca.lt', 'pixeline.loca.lt', /\.loca\.lt$/],
+    hmr: {
+      host: 'pixeline.loca.lt',
+      protocol: 'wss'
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
@@ -24,7 +29,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     rollupOptions: {
-      input: 'index.html'
+      input: {
+        main: 'index.html',
+        oauthCallback: 'oauth-callback-standalone.html'
+      }
     }
   }
 })

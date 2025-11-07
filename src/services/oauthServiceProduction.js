@@ -157,17 +157,12 @@ export async function startOAuthFlow(serverUrl = 'https://bsky.social') {
         // 5. Construct the authorization URL
         // Use localhost for development, production URL for production
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const clientId = isLocalhost
-            ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
-            : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+        const clientId = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
 
         // Handle subdirectory structure for redirect URI
         const path = window.location.pathname;
         const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
-        // For localhost, don't include the basePath since it's served from root
-        const redirectUri = isLocalhost
-            ? `${window.location.origin}/oauth-callback.html`
-            : `${window.location.origin}${basePath}/oauth-callback-standalone.html`;
+        const redirectUri = `${window.location.origin}${basePath}/oauth-callback-standalone.html`;
 
         const authUrl = new URL(`${serverUrl}/oauth/authorize`);
         authUrl.searchParams.append('client_id', clientId);
@@ -182,6 +177,15 @@ export async function startOAuthFlow(serverUrl = 'https://bsky.social') {
         authUrl.searchParams.append('state', state);
         authUrl.searchParams.append('code_challenge', codeChallenge);
         authUrl.searchParams.append('code_challenge_method', 'S256');
+
+        // Log key parameters for debugging (avoid logging secrets)
+        try {
+            console.log('OAuth authorize params:', {
+                serverUrl,
+                redirectUri,
+                scope: 'atproto transition:generic repo:app.bsky.graph.list?action=create&action=update&action=delete repo:app.bsky.graph.listitem?action=create&action=delete'
+            });
+        } catch {}
 
         // 6. Redirect the user to the authorization server
         window.location.href = authUrl.toString();
@@ -225,17 +229,12 @@ export async function handleOAuthCallback(queryParams) {
         let dpopNonce = '';
         try {
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const clientId = isLocalhost
-                ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
-                : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+            const clientId = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
 
             // Calculate basePath for redirect URI
             const path = window.location.pathname;
             const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
-            // For localhost, don't include the basePath since it's served from root
-            const redirectUri = isLocalhost
-                ? `${window.location.origin}/oauth-callback.html`
-                : `${window.location.origin}${basePath}/oauth-callback.html`;
+            const redirectUri = `${window.location.origin}${basePath}/oauth-callback.html`;
 
             const initialDpopJwt = await createDpopJwt(
                 dpopKeypair,
@@ -276,17 +275,12 @@ export async function handleOAuthCallback(queryParams) {
 
         // 8. Exchange the code for tokens
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const clientId = isLocalhost
-            ? 'http://localhost:5174/.well-known/oauth-client-metadata.json'
-            : 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
+        const clientId = 'https://pixeline.be/bluesky-list-manager/.well-known/oauth-client-metadata.json';
 
         // Calculate basePath for redirect URI
         const path = window.location.pathname;
         const basePath = path.includes('/bluesky-list-manager') ? '/bluesky-list-manager' : '';
-        // For localhost, don't include the basePath since it's served from root
-        const redirectUri = isLocalhost
-            ? `${window.location.origin}/oauth-callback.html`
-            : `${window.location.origin}${basePath}/oauth-callback-standalone.html`;
+        const redirectUri = `${window.location.origin}${basePath}/oauth-callback-standalone.html`;
 
         const tokenRequestBody = new URLSearchParams({
             grant_type: 'authorization_code',
